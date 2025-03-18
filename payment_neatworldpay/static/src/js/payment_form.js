@@ -15,7 +15,6 @@ paymentForm.include({
      */
     async _selectPaymentOption(ev) {
         await this._super(...arguments);
-        debugger
     },
         /**
      * Prepare the inline form of Stripe for direct payment.
@@ -34,13 +33,14 @@ paymentForm.include({
             this._super(...arguments);
             return;
         }
-        debugger
+        
         if (flow === 'token') {
             return; // No elements for tokens.
         }
 
         this._setPaymentFlow('direct');
     },
+    
     // #=== PAYMENT FLOW ===#
 
     /**
@@ -60,17 +60,34 @@ paymentForm.include({
             return;
         }
         if(processingValues.neatworldpay_use_iframe) {
-            var customOptions = {
-                url: processingValues.payment_url,
-                type: 'iframe',
-                inject: 'onload',
-                target: 'o_neatworldpay_component_container',
-                accessibility: true,
-                debug: false,
-            };
-            
-            var libraryObject = new WPCL.Library();
-            libraryObject.setup(customOptions);
+            this.call('ui', 'unblock');
+            const popup = document.querySelector('#neatworldpay_popup');
+            if (popup) popup.style.display = 'block';
+            document.querySelector('#confirm_payment').addEventListener('click', () => {
+                this.rpc('/payment/neatworldpay/process', {
+                    'reference': processingValues.reference,
+                    'state': 'authorized',
+                }).then(() => {
+                    window.location = '/payment/status';
+                }).catch(error => {
+                    this._displayErrorDialog(_t("Payment processing failed"), error.data.message);
+                    this._enableButton?.(); // This method doesn't exists in Express Checkout form.
+                });
+            });
+            document.querySelector('#close_popup').addEventListener('click', () => {
+                location.reload();
+            });
+            // var customOptions = {
+            //     url: processingValues.payment_url,
+            //     type: 'iframe',
+            //     inject: 'onload',
+            //     target: 'o_neatworldpay_component_container',
+            //     accessibility: true,
+            //     debug: false,
+            // };
+
+            // var libraryObject = new WPCL.Library();
+            // libraryObject.setup(customOptions);
         }
         else {
             window.location = processingValues.payment_url

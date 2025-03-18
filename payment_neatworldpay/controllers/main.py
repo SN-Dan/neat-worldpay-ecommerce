@@ -28,6 +28,15 @@ class NeatWorldpayController(http.Controller):
     ]
     _allowed_port = 443
 
+    @http.route('/payment/neatworldpay/process', type='json', auth='public')
+    def neatworldpay_payment(self, **data):
+        """ Simulate the response of a payment request.
+                :param dict data: The simulated notification data.
+        :return: None
+        """
+        request.env['payment.transaction'].sudo()._handle_notification_data('neatworldpay', data)
+
+
     @http.route(
         "/neatworldpay/wh", type="http", auth="public", csrf=False, methods=["POST", "GET"]
     )

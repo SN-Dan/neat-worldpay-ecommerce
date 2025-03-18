@@ -183,7 +183,10 @@ class PaymentTransaction(models.Model):
         }
         _logger.info(f"\n Request {payload} \n")
         _logger.info(f"\n Worldpay URL {self.provider_id.neatworldpay_connection_url} \n")
-        response = requests.post(self.provider_id.neatworldpay_connection_url, json=payload, headers=headers)
+        worldpay_url = "https://try.access.worldpay.com/payment_pages"
+        if self.provider_id.state == "enabled":
+            worldpay_url = "https://access.worldpay.com/payment_pages"
+        response = requests.post(worldpay_url, json=payload, headers=headers)
         data = response.json()
         _logger.info(f"\n Worldpay Response {data} \n")
         return { "payment_url": data.get("url", False), "neatworldpay_use_iframe": self.provider_id.neatworldpay_use_iframe }
