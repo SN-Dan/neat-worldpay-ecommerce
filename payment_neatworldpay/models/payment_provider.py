@@ -1,5 +1,3 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 import json
 import logging
 import re
@@ -28,8 +26,9 @@ class PaymentProvider(models.Model):
     neatworldpay_password = fields.Char(
         string="Password", help="Worldpay password",
         required_if_provider='neatworldpay')
+    neatworldpay_use_iframe = fields.Boolean(string="Use iFrame", required_if_provider='neatworldpay', help="iFrame allows you to process the payment on your Odoo web page instead of being redirected to a Worldpay website. It provides a more seamless user experience.", default=True)
     neatworldpay_connection_url = fields.Char(
-        string="Worldpay Connection URL", default="https://try.access.worldpay.com/payment_pages", help="Worldpay URL used for payment connunications", required_if_provider='neatworldpay',
+        string="Odoo Connection URL", default="", help="Odoo URL used for payment connunications", required_if_provider='neatworldpay',
         groups='base.group_system')
     def _compute_feature_support_fields(self):
         """ Override of `payment` to enable additional features. """

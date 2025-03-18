@@ -44,43 +44,7 @@ paymentForm.include({
     // #=== PAYMENT FLOW ===#
 
     /**
-     * Trigger the payment processing by submitting the elements.
-     *
-     * @override method from @payment/js/payment_form
-     * @private
-     * @param {string} providerCode - The code of the selected payment option's provider.
-     * @param {number} paymentOptionId - The id of the selected payment option.
-     * @param {string} paymentMethodCode - The code of the selected payment method, if any.
-     * @param {string} flow - The payment flow of the selected payment option.
-     * @return {void}
-     */
-    async _initiatePaymentFlow(providerCode, paymentOptionId, paymentMethodCode, flow) {
-        if (providerCode !== 'neatworldpay') {
-            await this._super(...arguments); // Tokens are handled by the generic flow.
-            return;
-        }
-
-        // Trigger form validation and wallet collection.
-        debugger
-        const _super = this._super.bind(this);
-        try {
-            //TODO initialize worldpay flow
-            console.log({
-                providerCode,
-                paymentOptionId,
-                paymentMethodCode,
-                flow
-            })
-        } catch (error) {
-            this._displayErrorDialog(_t("Incorrect payment details"), error.message);
-            this._enableButton();
-            return
-        }
-        return await _super(...arguments);
-    },
-
-    /**
-     * Process Stripe implementation of the direct payment flow.
+     * feedback from a payment provider and redirect the customer to the status page.
      *
      * @override method from payment.payment_form
      * @private
@@ -92,22 +56,25 @@ paymentForm.include({
      */
     async _processDirectFlow(providerCode, paymentOptionId, paymentMethodCode, processingValues) {
         if (providerCode !== 'neatworldpay') {
-            await this._super(...arguments);
+            this._super(...arguments);
             return;
         }
-        debugger
-
-
-        console.log({
-            providerCode, paymentOptionId, paymentMethodCode, processingValues
-        })
-        console.log(this)
-//        const { error } = await this._stripeConfirmIntent(processingValues, paymentOptionId);
-//        if (error) {
-//            this._displayErrorDialog(_t("Payment processing failed"), error.message);
-//            this._enableButton();
-//        }
-
-        //TODO start payment
+        if(processingValues.neatworldpay_use_iframe) {
+            var customOptions = {
+                url: processingValues.payment_url,
+                type: 'iframe',
+                inject: 'onload',
+                target: 'o_neatworldpay_component_container',
+                accessibility: true,
+                debug: false,
+            };
+            
+            var libraryObject = new WPCL.Library();
+            libraryObject.setup(customOptions);
+        }
+        else {
+            window.location = processingValues.payment_url
+        }
     },
+
 });

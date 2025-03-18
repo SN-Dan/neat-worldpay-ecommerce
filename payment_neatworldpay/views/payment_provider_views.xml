@@ -24,10 +24,25 @@
                         required="code == 'neatworldpay' and state != 'disabled'"
                     />
                     <field
-                        name="neatworldpay_connection_url"
-                        string="Connection URL"
+                        name="neatworldpay_use_iframe"
+                        string="Use iFrame"
                         required="code == 'neatworldpay' and state != 'disabled'"
                     />
+                    <field
+                        name="neatworldpay_connection_url"
+                        string="Odoo Server URL"
+                        required="code == 'neatworldpay' and state != 'disabled'"
+                    />
+                    <script type="text/javascript">
+                        document.addEventListener('DOMContentLoaded', function () {
+                            const connectionUrlField = document.querySelector(
+                                "input[name='neatworldpay_connection_url']"
+                            );
+                            if (connectionUrlField && connectionUrlField.value === "") {
+                                connectionUrlField.value = window.location.origin;
+                            }
+                        });
+                    </script>
                 </group>
             </group>
         </field>

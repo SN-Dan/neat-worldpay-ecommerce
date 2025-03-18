@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
         <template id="inline_form">
-                <div name="o_neatworldpay_component_container"/>
+                <div name="o_neatworldpay_component_container" style="background-color: #fff;padding: 20px;width: 300px;box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);border-radius: 10px;position: static;margin: 100px auto;z-index: 9999;" >
         </template>
 </odoo>
