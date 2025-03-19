@@ -10,7 +10,7 @@
         <field name="code">neatworldpay</field>
         <field name="name">Neat Worldpay</field>
         <field name="inline_form_view_id" ref="inline_form"/>
-        <field name="allow_tokenization">True</field>
+        <field name="allow_tokenization">False</field>
         <field name="image_128" type="base64"
             file="payment_neatworldpay/static/description/icon.png" />
         <field name="module_id" ref="base.module_payment_neatworldpay" />
