@@ -63,10 +63,13 @@ paymentForm.include({
             this.call('ui', 'unblock');
             const popup = document.querySelector('#neatworldpay_popup');
             if (popup) popup.style.display = 'block';
-            document.querySelector('#confirm_payment').addEventListener('click', () => {
-                this.rpc('/payment/neatworldpay/process', {
+            document.querySelector('#confirm_payment').addEventListener('click', (e) => {
+                e.preventDefault()
+                this.call('ui', 'block');
+                const rpc = this.rpc ? this.rpc : this.orm.rpc
+                rpc('/payment/neatworldpay/process', {
                     'reference': processingValues.reference,
-                    'state': 'authorized',
+                    'result_state': 'done',
                 }).then(() => {
                     window.location = '/payment/status';
                 }).catch(error => {
@@ -75,6 +78,7 @@ paymentForm.include({
                 });
             });
             document.querySelector('#close_popup').addEventListener('click', () => {
+                e.preventDefault()
                 location.reload();
             });
             // var customOptions = {

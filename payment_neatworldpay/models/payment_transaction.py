@@ -30,7 +30,7 @@ class PaymentTransaction(models.Model):
             raise UserError("NEATWorldpay: " + _("The transaction is not linked to a token."))
 
         state = self.token_id.state
-        notification_data = {'reference': self.reference, 'state': state}
+        notification_data = {'reference': self.reference, 'result_state': state}
         self._handle_notification_data('neatworldpay', notification_data)
 
     def _send_refund_request(self, **kwargs):
@@ -46,7 +46,7 @@ class PaymentTransaction(models.Model):
         if self.provider_code != 'neatworldpay':
             return refund_tx
 
-        notification_data = {'reference': refund_tx.reference, 'state': 'done'}
+        notification_data = {'reference': refund_tx.reference, 'result_state': 'done'}
         refund_tx._handle_notification_data('neatworldpay', notification_data)
 
         return refund_tx
@@ -60,8 +60,7 @@ class PaymentTransaction(models.Model):
         tx = child_capture_tx or self
         notification_data = {
             'reference': tx.reference,
-            'state': 'done',
-            'manual_capture': True,  # Distinguish manual captures from regular one-step captures.
+            'result_state': 'done',
         }
         tx._handle_notification_data('neatworldpay', notification_data)
 
@@ -74,7 +73,7 @@ class PaymentTransaction(models.Model):
             return child_void_tx
 
         tx = child_void_tx or self
-        notification_data = {'reference': tx.reference, 'state': 'cancel'}
+        notification_data = {'reference': tx.reference, 'result_state': 'cancel'}
         tx._handle_notification_data('neatworldpay', notification_data)
 
         return child_void_tx
@@ -96,7 +95,7 @@ class PaymentTransaction(models.Model):
         tx = self.search([('reference', '=', reference), ('provider_code', '=', 'neatworldpay')])
         if not tx:
             raise ValidationError(
-                "Demo: " + _("No transaction found matching reference %s.", reference)
+                "NeatWorldpay: " + _("No transaction found matching reference %s.", reference)
             )
         return tx
 
@@ -116,19 +115,14 @@ class PaymentTransaction(models.Model):
         self.provider_reference = f'neatworldpay-{self.reference}'
 
         # Update the provider reference.
-        state = notification_data['state']
-        if state == "sentForAuthorization" or state == "sentForSettlement":
-            self._set_pending()
-        elif state == "authorized":
+        state = notification_data['result_state']
+        _logger.info(f"\n Process State {state} \n")
+        if state == "done":
             self._set_done()
-            # if self.operation == 'refund':
-            #     self.env.ref('payment.cron_post_process_payment_tx')._trigger()
-        elif state == "cancelled" or state == "expired" or state == "refused":
+        elif state == "cancel":
             self._set_canceled()
         elif state == "error":
             self._set_error("Received an error from Worldpay")
-        else:
-            self._set_error(_("Invalid payment state: %s", state))
 
 
     def _get_specific_processing_values(self, processing_values):

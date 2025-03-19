@@ -36,7 +36,14 @@ class NeatWorldpayController(http.Controller):
         """
         request.env['payment.transaction'].sudo()._handle_notification_data('neatworldpay', data)
 
-
+    @http.route('/.well-known/apple-developer-merchantid-domain-association', type='http', auth='public', csrf=False)
+    def apple_pay_association(self, **kwargs):
+        file_path = "/your_module_name/static/.well-known/apple-developer-merchantid-domain-association"
+        return request.make_response(
+            request.env['ir.qweb']._render(file_path),
+            [('Content-Type', 'text/plain')]
+        )
+        
     @http.route(
         "/neatworldpay/wh", type="http", auth="public", csrf=False, methods=["POST", "GET"]
     )
@@ -71,9 +78,18 @@ class NeatWorldpayController(http.Controller):
                 )
 
                 if res:
+                    state = event_details.get("type", False)
+                    if state == "sentForAuthorization" or state == "sentForSettlement":
+                        state = 'pending'
+                    elif state == "authorized":
+                        state = 'done'
+                    elif state == "cancelled" or state == "expired" or state == "refused":
+                        state = 'cancel'
+                    else:
+                        state = 'error'
                     data = {
                         'reference': event_details.get("transactionReference", False),
-                        'state': event_details.get("type", False)
+                        'result_state': state
                     }
                     res.sudo()._handle_notification_data(
                         "neatworldpay", data

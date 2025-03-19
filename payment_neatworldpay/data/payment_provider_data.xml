@@ -14,7 +14,6 @@
         <field name="image_128" type="base64"
             file="payment_neatworldpay/static/description/icon.png" />
         <field name="module_id" ref="base.module_payment_neatworldpay" />
-        <field name="company_id" ref="base.main_company" />
         <field name="payment_method_ids"
                 eval="[Command.set([ref('payment_neatworldpay.payment_method_neatworldpay')])]" />
     </record>
