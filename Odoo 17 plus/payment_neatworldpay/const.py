@@ -1,0 +1,3 @@
+DEFAULT_PAYMENT_METHODS_CODES = [
+    'card'
+]

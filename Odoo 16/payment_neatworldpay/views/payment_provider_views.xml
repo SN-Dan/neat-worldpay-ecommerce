@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="payment_provider_form" model="ir.ui.view">
+        <field name="name">NEATWorldPay Provider Form</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment.payment_provider_form"/>
+        <field name="arch" type="xml">
+            <group name="provider_credentials" position='inside'>
+                <group attrs="{'invisible': [('code', '!=', 'neatworldpay')]}">
+                    <field
+                        name="neatworldpay_entity"
+                        string="Entity"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                    <field
+                        name="neatworldpay_username"
+                        string="Username"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                    <field
+                        name="neatworldpay_password"
+                        string="Password"
+                        password="True"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                    <field
+                        name="neatworldpay_use_iframe"
+                        string="Use iFrame"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                    <field
+                        name="neatworldpay_connection_url"
+                        string="Odoo Server URL"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                </group>
+            </group>
+        </field>
+    </record>
+</odoo>

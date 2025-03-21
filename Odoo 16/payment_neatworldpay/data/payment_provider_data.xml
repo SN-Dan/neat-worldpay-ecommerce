@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="payment_provider_neatworldpay" model="payment.provider">
+        <field name="code">neatworldpay</field>
+        <field name="name">Neat Worldpay</field>
+        <field name="state">enabled</field>
+        <field name="module_id" ref="base.module_payment_neatworldpay" />
+        <field name="image_128" type="base64" file="payment_neatworldpay/static/description/icon.png" />
+        <field name="auth_msg">Neat Worldpay authorization successful.</field>
+        <field name="capture_manually">False</field>
+        <field name="support_refund">True</field>
+        <field name="support_tokenization">False</field>
+
+        <field name="neatworldpay_entity">YourWorldpayEntity</field>
+        <field name="neatworldpay_username">YourWorldpayUsername</field>
+        <field name="neatworldpay_password">YourWorldpayPassword</field>
+        <field name="neatworldpay_connection_url">https://your-odoo-instance.com</field>
+    </record>
+</odoo>
