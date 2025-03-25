@@ -81,17 +81,17 @@ paymentForm.include({
                 e.preventDefault()
                 location.reload();
             });
-            // var customOptions = {
-            //     url: processingValues.payment_url,
-            //     type: 'iframe',
-            //     inject: 'onload',
-            //     target: 'o_neatworldpay_component_container',
-            //     accessibility: true,
-            //     debug: false,
-            // };
+            var customOptions = {
+                url: processingValues.payment_url,
+                type: 'iframe',
+                inject: 'onload',
+                target: 'o_neatworldpay_component_container',
+                accessibility: true,
+                debug: false,
+            };
 
-            // var libraryObject = new WPCL.Library();
-            // libraryObject.setup(customOptions);
+            var libraryObject = new WPCL.Library();
+            libraryObject.setup(customOptions);
         }
         else {
             window.location = processingValues.payment_url
