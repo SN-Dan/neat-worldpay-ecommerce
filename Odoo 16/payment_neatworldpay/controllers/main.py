@@ -26,15 +26,6 @@ class NeatWorldpayController(http.Controller):
         '35.170.209.108', '35.177.246.6', '52.4.68.25', '52.51.12.88',
         '108.129.30.203'
     ]
-    _allowed_port = 443
-
-    @http.route('/payment/neatworldpay/process', type='json', auth='public')
-    def neatworldpay_payment(self, **data):
-        """ Simulate the response of a payment request.
-                :param dict data: The simulated notification data.
-        :return: None
-        """
-        request.env['payment.transaction'].sudo()._handle_notification_data('neatworldpay', data)
 
     @http.route('/.well-known/apple-developer-merchantid-domain-association', type='http', auth='public', csrf=False)
     def apple_pay_association(self, **kwargs):
@@ -49,15 +40,8 @@ class NeatWorldpayController(http.Controller):
     )
     def neatworldpay_wh(self, **kwargs):
         client_ip = request.httprequest.remote_addr
-        client_port = request.httprequest.environ.get('REMOTE_PORT')
-
+        _logger.info(f"\n Client IP {client_ip} \n")
         if client_ip not in self._allowed_ips:
-            return request.make_json_response({
-                'error': 'Forbidden',
-                'message': 'Forbidden'
-            }, status=403)
-
-        if int(client_port) != self._allowed_port:
             return request.make_json_response({
                 'error': 'Forbidden',
                 'message': 'Forbidden'
@@ -112,25 +96,32 @@ class NeatWorldpayController(http.Controller):
 
 
     @http.route(
-        [result_action],
+        [result_action + "/<string:status>"],
         type="http",
         auth="public",
         csrf=False,
         save_session=False,
     )
-    def worldpay_success(self, **kwargs):
-        start_time = time.time()
-        while time.time() - start_time < 20:
+    def worldpay_result(self, status, **kwargs):
+        _logger.info(f"\n Status {status} \n")
+        _logger.info(f"\n Redirect Path {request.httprequest.path} \n")
+        _logger.info(f"\n Kwargs {kwargs} \n")
+        if status == "cancel" or status == "expiry":
             res = (
                 request.env["payment.transaction"]
                 .sudo()
                 .search([
-                    ("reference", "=", kwargs.get("ref", False)),
+                    ("reference", "=", kwargs.get("reference", False)),
                     ("provider_code", "=", "neatworldpay"),
-                    ("state", "!=", "draft")
+                    ("state", "=", "draft")
                 ], limit=1)
             )
             if res:
-                break
-            time.sleep(1)
+                data = {
+                    'reference': kwargs.get("reference", False),
+                    'result_state': 'cancel'
+                }
+                res.sudo()._handle_notification_data(
+                    "neatworldpay", data
+                )
         return request.redirect("/payment/status")

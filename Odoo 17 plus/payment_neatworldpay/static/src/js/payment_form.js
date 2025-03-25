@@ -63,31 +63,19 @@ paymentForm.include({
             this.call('ui', 'unblock');
             const popup = document.querySelector('#neatworldpay_popup');
             if (popup) popup.style.display = 'block';
-            document.querySelector('#confirm_payment').addEventListener('click', (e) => {
-                e.preventDefault()
-                this.call('ui', 'block');
-                const rpc = this.rpc ? this.rpc : this.orm.rpc
-                rpc('/payment/neatworldpay/process', {
-                    'reference': processingValues.reference,
-                    'result_state': 'done',
-                }).then(() => {
-                    window.location = '/payment/status';
-                }).catch(error => {
-                    this._displayErrorDialog(_t("Payment processing failed"), error.data.message);
-                    this._enableButton?.(); // This method doesn't exists in Express Checkout form.
-                });
-            });
-            document.querySelector('#close_popup').addEventListener('click', () => {
-                e.preventDefault()
-                location.reload();
-            });
             var customOptions = {
                 url: processingValues.payment_url,
                 type: 'iframe',
-                inject: 'onload',
-                target: 'o_neatworldpay_component_container',
+                inject: 'immediate',
+                target: 'neatworldpay-container',
                 accessibility: true,
                 debug: false,
+                resultCallback: (responseData) => {
+                    var status = responseData.order.status
+                    if(status === 'cancelled_by_shopper') {
+                        location.reload();
+                    }
+                }
             };
 
             var libraryObject = new WPCL.Library();

@@ -1,15 +1,15 @@
 {
-    'name': 'NeatApps Worldpay Integration',
+    'name': 'Neat Worldpay Online Payments',
     'version': '2.0',
     'category': 'Accounting/Payment Providers',
     'sequence': 350,
-    'summary': "NeatApps Worldpay Integration for online payments.",
-    'description': " ",  # Non-empty string to avoid loading the README file.
+    'summary': "Neat Worldpay Integration for online payments.",
+    'description': " ",
     'depends': ['payment'],
     'data': [
         'views/payment_provider_views.xml',
         'views/payment_neatworldpay_templates.xml',
-        'views/payment_form_templates.xml',  # Only load the SDK on pages with a payment form.
+        'views/payment_form_templates.xml',
 
         'data/payment_provider_data.xml'
     ],

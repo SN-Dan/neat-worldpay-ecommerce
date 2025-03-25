@@ -53,39 +53,23 @@ const neatWorldpayMixin = {
             $('body').unblock();
             const popup = document.querySelector('#neatworldpay_popup');
             if (popup) popup.style.display = 'block';
-            document.querySelector('#confirm_payment').addEventListener('click', (e) => {
-                e.preventDefault()
-                this._disableButton(true)
-                popup.style.display = 'none'
-                $('body').block();
-                this._rpc({
-                    route: '/payment/neatworldpay/process', 
-                    params: {
-                        'reference': processingValues.reference,
-                        'result_state': 'done',
+            var customOptions = {
+                url: processingValues.payment_url,
+                type: 'iframe',
+                inject: 'immediate',
+                target: 'neatworldpay-container',
+                accessibility: true,
+                debug: false,
+                resultCallback: (responseData) => {
+                    var status = responseData.order.status
+                    if(status === 'cancelled_by_shopper') {
+                        location.reload();
                     }
-                }).then(() => {
-                    window.location = '/payment/status';
-                }).catch(error => {
-                    this._displayErrorDialog(_t("Payment processing failed"), error.data.message);
-                    this._enableButton?.(); // This method doesn't exists in Express Checkout form.
-                });
-            });
-            document.querySelector('#close_popup').addEventListener('click', () => {
-                e.preventDefault()
-                location.reload();
-            });
-            // var customOptions = {
-            //     url: processingValues.payment_url,
-            //     type: 'iframe',
-            //     inject: 'onload',
-            //     target: 'o_neatworldpay_component_container',
-            //     accessibility: true,
-            //     debug: false,
-            // };
+                }
+            };
 
-            // var libraryObject = new WPCL.Library();
-            // libraryObject.setup(customOptions);
+            var libraryObject = new WPCL.Library();
+            libraryObject.setup(customOptions);
         }
         else {
             window.location = processingValues.payment_url

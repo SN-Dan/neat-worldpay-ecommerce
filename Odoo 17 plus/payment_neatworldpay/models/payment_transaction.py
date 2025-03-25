@@ -6,6 +6,7 @@ from odoo.exceptions import UserError, ValidationError
 from werkzeug import urls
 from odoo.addons.payment_neatworldpay.controllers.main import NeatWorldpayController
 import uuid
+import re
 
 _logger = logging.getLogger(__name__)
 
@@ -142,15 +143,22 @@ class PaymentTransaction(models.Model):
         }
 
         odoo_url = self.provider_id.neatworldpay_connection_url
-        result_url = str(urls.url_join(odoo_url, NeatWorldpayController.result_action)) + "?ref=" + processing_values.get("reference") 
+        result_url = str(urls.url_join(odoo_url, NeatWorldpayController.result_action))
 
+        state = ""
+        if self.partner_state_id:
+            if  (self.partner_country_id.code == "US" or  self.partner_country_id.code == "CN") and self.partner_state_id.code:
+                state = self.partner_state_id.code
+            elif self.partner_state_id.name:
+                state = self.partner_state_id.name
+        reference = processing_values.get("reference")   
         payload = {
-            "transactionReference": processing_values.get("reference"),
+            "transactionReference": reference,
             "merchant": {
                 "entity": self.provider_id.neatworldpay_entity
             },
             "narrative": {
-                "line1": self.company_id.name
+                "line1": re.sub(r"[^a-zA-Z0-9\-., ]", "", self.company_id.name)
             },
             "value": {
                 "currency": self.currency_id.name,
@@ -162,19 +170,20 @@ class PaymentTransaction(models.Model):
                 "address2": self.partner_id.street2 or "",
                 "postalCode": self.partner_zip or "",
                 "city": self.partner_city or "",
-                "state": self.partner_state_id.name or "",
+                "state": state,
                 "countryCode": self.partner_country_id.code or ""
             },
             "resultURLs": {
-                "successURL": result_url + "&status=success",
-                "pendingURL": result_url + "&status=pending",
-                "failureURL": result_url + "&status=failure",
-                "errorURL": result_url + "&status=error",
-                "cancelURL": result_url + "&status=cancel",
-                "expiryURL": result_url + "&status=expiry",
+                "successURL": result_url + "/success?reference={}".format(reference),
+                "pendingURL": result_url + "/pending?reference={}".format(reference),
+                "failureURL": result_url + "/failure?reference={}".format(reference),
+                "errorURL": result_url + "/error?reference={}".format(reference),
+                "expiryURL": result_url + "/expiry?reference={}".format(reference),
             },
             "expiry": "2592000"
         }
+        if not self.provider_id.neatworldpay_use_iframe:
+            payload["resultURLs"]["cancelURL"] = result_url + "/cancel?reference={}".format(reference)
         _logger.info(f"\n Request {payload} \n")
         _logger.info(f"\n Worldpay URL {self.provider_id.neatworldpay_connection_url} \n")
         worldpay_url = "https://try.access.worldpay.com/payment_pages"
