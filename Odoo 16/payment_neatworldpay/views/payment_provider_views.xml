@@ -26,13 +26,23 @@
                     <field
                         name="neatworldpay_use_iframe"
                         string="Use iFrame"
-                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
                     />
                     <field
                         name="neatworldpay_connection_url"
                         string="Odoo Server URL"
                         attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
                     />
+                    <field
+                        name="neatworldpay_fallback_user_id"
+                        string="Fallback Failure User"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                   <div class="oe_structure" colspan="2">
+                        <p>
+                            Please make sure to set the following webhook in the Worldpay Dashboard:
+                        </p>
+                        <p><strong>{Odoo Server URL}/neatworldpay/wh</strong></p>
+                    </div>
                 </group>
             </group>
         </field>

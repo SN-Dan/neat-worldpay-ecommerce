@@ -7,6 +7,7 @@ from werkzeug import urls
 from odoo.addons.payment_neatworldpay.controllers.main import NeatWorldpayController
 import uuid
 import re
+from decimal import Decimal
 
 _logger = logging.getLogger(__name__)
 
@@ -120,10 +121,14 @@ class PaymentTransaction(models.Model):
         _logger.info(f"\n Process State {state} \n")
         if state == "done":
             self._set_done()
+        elif state == "pending":
+            self._set_pending()
+        elif state == "authorized":
+            self._set_authorized()
         elif state == "cancel":
             self._set_canceled()
         elif state == "error":
-            self._set_error("Received an error from Worldpay")
+            self._set_error("Payment declined.")
 
 
     def _get_specific_processing_values(self, processing_values):
@@ -151,7 +156,9 @@ class PaymentTransaction(models.Model):
                 state = self.partner_state_id.code
             elif self.partner_state_id.name:
                 state = self.partner_state_id.name
-        reference = processing_values.get("reference")   
+        reference = processing_values.get("reference") 
+        decimal_amount = Decimal(str(self.amount)) * Decimal('100')
+        amount = int(decimal_amount)  
         payload = {
             "transactionReference": reference,
             "merchant": {
@@ -162,7 +169,7 @@ class PaymentTransaction(models.Model):
             },
             "value": {
                 "currency": self.currency_id.name,
-                "amount": self.amount
+                "amount": amount
             },
             "billingAddressName": self.partner_address,
             "billingAddress": {

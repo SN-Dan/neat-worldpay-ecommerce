@@ -6,8 +6,8 @@ import logging
 import pprint
 import time
 from odoo.http import request
-
-from odoo import _, http
+from odoo import _, http, fields
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ class NeatWorldpayController(http.Controller):
             }, status=403)
 
         response = request.get_json_data()
+        _logger.info(f"\n WH Response {response} \n")
         try:
             if response.get("eventDetails", False):
                 event_details = response.get("eventDetails")
@@ -57,27 +58,78 @@ class NeatWorldpayController(http.Controller):
                     .search([
                         ("reference", "=", event_details.get("transactionReference", False)),
                         ("provider_code", "=", "neatworldpay"),
-                        ("state", "=", "draft")
+                        ("state", "not in", ["done", "cancel", "error"])
                     ], limit=1)
                 )
 
                 if res:
                     state = event_details.get("type", False)
-                    if state == "sentForAuthorization" or state == "sentForSettlement":
-                        state = 'pending'
-                    elif state == "authorized":
-                        state = 'done'
-                    elif state == "cancelled" or state == "expired" or state == "refused":
-                        state = 'cancel'
-                    else:
-                        state = 'error'
-                    data = {
-                        'reference': event_details.get("transactionReference", False),
-                        'result_state': state
-                    }
-                    res.sudo()._handle_notification_data(
-                        "neatworldpay", data
-                    )
+                    if state != "sentForAuthorization":
+                        if state == "authorized":
+                            count = 0
+                            _logger.info(f"\n WH State is Authorized {res.reference} \n")
+                            while count < 30:
+                                time.sleep(1)
+                                request.env.cr.commit()
+                                res = (
+                                    request.env["payment.transaction"]
+                                    .sudo()
+                                    .search([
+                                        ("reference", "=", event_details.get("transactionReference", False)),
+                                        ("provider_code", "=", "neatworldpay"),
+                                        ("state", "not in", ["done", "cancel", "error"])
+                                    ], limit=1)
+                                )
+
+                                if not res:
+                                    _logger.info(f"\n Transaction was finished while waiting for pending status {res.reference} \n")
+                                    return request.make_json_response({
+                                        'error': 'OK',
+                                        'message': 'OK'
+                                    }, status=200)
+
+                                _logger.info(f"\n Current RES State is {res.state} {res.reference} \n")
+                                if res.state == "pending":
+                                    break
+
+                                count+=1
+
+                        if res.state == "authorized" and state != "sentForSettlement":
+                            sale_order_ref = res.reference.split("-")[0]
+                            _logger.info(f"\n Transaction Cancelled after authorized {sale_order_ref} \n")
+                            sale_order = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
+                            if sale_order:
+                                _logger.info(f"\n Sale Order Found for cancelled transaction creating activity {sale_order_ref} {sale_order} \n")
+                                user_id = None
+                                if sale_order.user_id:
+                                    user_id = sale_order.user_id.id
+                                elif res.provider_id.neatworldpay_fallback_user_id:
+                                    user_id = int(res.provider_id.neatworldpay_fallback_user_id)
+                                
+                                sale_order.activity_schedule(
+                                    act_type_xmlid='mail.mail_activity_data_todo',
+                                    user_id=user_id,
+                                    date_deadline=fields.Date.today(),
+                                    summary="Payment Issue - Action Required",
+                                    note=f"The transaction {res.reference} has failed. Please review and take action."
+                                )
+                        if state == "sentForAuthorization":
+                            state = 'pending'
+                        elif state == "authorized":
+                            state = "authorized"
+                        elif state == "sentForSettlement":
+                            state = 'done'
+                        elif state == "cancelled":
+                            state = 'cancel'
+                        else:
+                            state = 'error'
+                        data = {
+                            'reference': event_details.get("transactionReference", False),
+                            'result_state': state
+                        }
+                        res.sudo()._handle_notification_data(
+                            "neatworldpay", data
+                        )
             else:
                 return request.make_json_response({
                     'error': 'Bad Request',
@@ -96,7 +148,7 @@ class NeatWorldpayController(http.Controller):
 
 
     @http.route(
-        [result_action + "/<string:status>"],
+        result_action + "/<string:status>",
         type="http",
         auth="public",
         csrf=False,
@@ -106,22 +158,46 @@ class NeatWorldpayController(http.Controller):
         _logger.info(f"\n Status {status} \n")
         _logger.info(f"\n Redirect Path {request.httprequest.path} \n")
         _logger.info(f"\n Kwargs {kwargs} \n")
-        if status == "cancel" or status == "expiry":
-            res = (
-                request.env["payment.transaction"]
-                .sudo()
-                .search([
-                    ("reference", "=", kwargs.get("reference", False)),
-                    ("provider_code", "=", "neatworldpay"),
-                    ("state", "=", "draft")
-                ], limit=1)
+        res = (
+        request.env["payment.transaction"]
+            .sudo()
+            .search([
+                ("reference", "=", kwargs.get("reference", False)),
+                ("provider_code", "=", "neatworldpay"),
+                ("state", "in", ["draft", "pending", "authorized"])
+            ], limit=1)
+        )
+        if res:
+            if res.state == "authorized" and (status == "failure" or status == "cancel"):
+                sale_order_ref = res.reference.split("-")[0]
+                _logger.info(f"\n Transaction Cancelled after authorized {sale_order_ref} \n")
+                sale_order = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
+                if sale_order:
+                    _logger.info(f"\n Sale Order Found for cancelled transaction creating activity {sale_order_ref} {sale_order} \n")
+                    user_id = None
+                    if sale_order.user_id:
+                        user_id = sale_order.user_id.id
+                    elif res.provider_id.neatworldpay_fallback_user_id:
+                        user_id = int(res.provider_id.neatworldpay_fallback_user_id)
+                    
+                    sale_order.activity_schedule(
+                        act_type_xmlid='mail.mail_activity_data_todo',
+                        user_id=user_id,
+                        date_deadline=fields.Date.today(),
+                        summary="Payment Issue - Action Required",
+                        note=f"The transaction {res.reference} has failed. Please review and take action."
+                    )
+            result_state = 'cancel'
+            if status == 'failure':
+                result_state = 'error'
+            elif status == 'success' or status == 'pending':
+                result_state = 'pending'
+            data = {
+                'reference': kwargs.get("reference", False),
+                'result_state': result_state
+            }
+            res.sudo()._handle_notification_data(
+                "neatworldpay", data
             )
-            if res:
-                data = {
-                    'reference': kwargs.get("reference", False),
-                    'result_state': 'cancel'
-                }
-                res.sudo()._handle_notification_data(
-                    "neatworldpay", data
-                )
+
         return request.redirect("/payment/status")

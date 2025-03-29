@@ -82,7 +82,7 @@ paymentForm.include({
             libraryObject.setup(customOptions);
         }
         else {
-            window.location = processingValues.payment_url
+            window.top.location.href = processingValues.payment_url
         }
     },
 
