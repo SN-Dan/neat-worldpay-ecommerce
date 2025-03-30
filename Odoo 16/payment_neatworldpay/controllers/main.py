@@ -81,7 +81,7 @@ class NeatWorldpayController(http.Controller):
                                     ], limit=1)
                                 )
 
-                                if not res:
+                                if not res or res.state == "authorized":
                                     _logger.info(f"\n Transaction was finished while waiting for pending status {res.reference} \n")
                                     return request.make_json_response({
                                         'error': 'OK',

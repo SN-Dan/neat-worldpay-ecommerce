@@ -8,7 +8,6 @@
     'depends': ['payment'],
     'data': [
         'views/payment_provider_views.xml',
-        'views/payment_neatworldpay_templates.xml',
         'views/payment_form_templates.xml',
 
         'data/payment_provider_data.xml'

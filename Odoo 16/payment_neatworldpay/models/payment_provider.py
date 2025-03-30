@@ -49,8 +49,7 @@ class PaymentProvider(models.Model):
     neatworldpay_fallback_user_id = fields.Selection(
         selection=_get_all_users,
         string='Fallback Failure User',
-        help='Select a user who will receive an activity if a transaction fails for a sale order that does not have a salesperson.',
-        required_if_provider='neatworldpay'
+        help='Select a user who will receive an activity if a transaction fails for a sale order that does not have a salesperson.'
     )
 
     def _compute_feature_support_fields(self):

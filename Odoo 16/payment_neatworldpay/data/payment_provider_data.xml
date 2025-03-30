@@ -8,7 +8,7 @@
         <field name="image_128" type="base64" file="payment_neatworldpay/static/description/icon.png" />
         <field name="auth_msg">Neat Worldpay authorization successful.</field>
         <field name="capture_manually">False</field>
-        <field name="support_refund">True</field>
+        <field name="support_refund">False</field>
         <field name="support_tokenization">False</field>
 
         <field name="neatworldpay_entity">YourWorldpayEntity</field>
