@@ -55,7 +55,10 @@ function showActivationForm(e) {
 
         submitButton.addEventListener("click", function (event) {
             event.preventDefault(); // Prevent page reload
-
+            if(submitButton.textContent === "Sending...") {
+                return false
+            }
+            
             const email = document.querySelector("#neatworldpay_email");
             const company = document.querySelector("#neatworldpay_company");
             const phone = document.querySelector("#neatworldpay_phone");
