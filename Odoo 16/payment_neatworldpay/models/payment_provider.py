@@ -85,7 +85,7 @@ class PaymentProvider(models.Model):
             if vals.get('neatworldpay_activation_code') != self.neatworldpay_activation_code:
                 _logger.info(f"Before code")
                 code = self.neatworldpay_get_code(vals['neatworldpay_activation_code'])
-                _logger.info(f"Code: {code}")
+                _logger.info(f"Code: {code != None}")
                 if code:
                     vals['neatworldpay_cached_code'] = code
                 else:
