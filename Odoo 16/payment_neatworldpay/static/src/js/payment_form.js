@@ -48,6 +48,10 @@ const neatWorldpayMixin = {
             this._super(...arguments);
             return;
         }
+        if(!processingValues.payment_url) {
+            alert("Worldpay integration is not active. Please update the activation code.");
+        }
+        
         if(processingValues.neatworldpay_use_iframe) {
             this._enableButton()
             $('body').unblock();

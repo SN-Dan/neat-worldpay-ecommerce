@@ -35,7 +35,7 @@ paymentForm.include({
         }
         
         if (flow === 'token') {
-            return; // No elements for tokens.
+            return;
         }
 
         this._setPaymentFlow('direct');
@@ -58,6 +58,9 @@ paymentForm.include({
         if (providerCode !== 'neatworldpay') {
             this._super(...arguments);
             return;
+        }
+        if(!processingValues.payment_url) {
+            alert("Worldpay integration is not active. Please update the activation code.");
         }
         if(processingValues.neatworldpay_use_iframe) {
             this.call('ui', 'unblock');

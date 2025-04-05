@@ -58,13 +58,13 @@ class NeatWorldpayController(http.Controller):
                     .search([
                         ("reference", "=", event_details.get("transactionReference", False)),
                         ("provider_code", "=", "neatworldpay"),
-                        ("state", "not in", ["done", "cancel", "error"])
+                        ("state", "not in", ["cancel", "error"])
                     ], limit=1)
                 )
 
                 if res:
                     state = event_details.get("type", False)
-                    if state != "sentForAuthorization":
+                    if state != "sentForAuthorization" and state != "sentForSettlement":
                         if state == "authorized":
                             count = 0
                             _logger.info(f"\n WH State is Authorized {res.reference} \n")
@@ -81,7 +81,7 @@ class NeatWorldpayController(http.Controller):
                                     ], limit=1)
                                 )
 
-                                if not res or res.state == "authorized":
+                                if not res or res.state == "done":
                                     _logger.info(f"\n Transaction was finished while waiting for pending status {res.reference} \n")
                                     return request.make_json_response({
                                         'error': 'OK',
@@ -94,9 +94,17 @@ class NeatWorldpayController(http.Controller):
 
                                 count+=1
 
-                        if res.state == "authorized" and state != "sentForSettlement":
+                        if state == "sentForAuthorization":
+                            state = 'pending'
+                        elif state == "authorized":
+                            state = "done"
+                        elif state == "cancelled":
+                            state = 'cancel'
+                        else:
+                            state = 'error'
+                        if res.state == "done" and (state == 'cancel' or state == 'error'):
                             sale_order_ref = res.reference.split("-")[0]
-                            _logger.info(f"\n Transaction Cancelled after authorized {sale_order_ref} \n")
+                            _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")
                             sale_order = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
                             if sale_order:
                                 _logger.info(f"\n Sale Order Found for cancelled transaction creating activity {sale_order_ref} {sale_order} \n")
@@ -110,19 +118,14 @@ class NeatWorldpayController(http.Controller):
                                     act_type_xmlid='mail.mail_activity_data_todo',
                                     user_id=user_id,
                                     date_deadline=fields.Date.today(),
-                                    summary="Payment Issue - Action Required",
-                                    note=f"The transaction {res.reference} has failed. Please review and take action."
+                                    summary="Payment Failed - Action Required",
+                                    note=f"The payment failed after initial confirmation {res.reference}. Please review and take action."
                                 )
-                        if state == "sentForAuthorization":
-                            state = 'pending'
-                        elif state == "authorized":
-                            state = "authorized"
-                        elif state == "sentForSettlement":
-                            state = 'done'
-                        elif state == "cancelled":
-                            state = 'cancel'
-                        else:
-                            state = 'error'
+                            return request.make_json_response({
+                                'error': 'OK',
+                                'message': 'OK'
+                            }, status=200)
+
                         data = {
                             'reference': event_details.get("transactionReference", False),
                             'result_state': state
@@ -164,13 +167,13 @@ class NeatWorldpayController(http.Controller):
             .search([
                 ("reference", "=", kwargs.get("reference", False)),
                 ("provider_code", "=", "neatworldpay"),
-                ("state", "in", ["draft", "pending", "authorized"])
+                ("state", "in", ["draft", "pending", "done"])
             ], limit=1)
         )
         if res:
-            if res.state == "authorized" and (status == "failure" or status == "cancel"):
+            if res.state == "done" and (status == "failure" or status == "cancel"):
                 sale_order_ref = res.reference.split("-")[0]
-                _logger.info(f"\n Transaction Cancelled after authorized {sale_order_ref} \n")
+                _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")
                 sale_order = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
                 if sale_order:
                     _logger.info(f"\n Sale Order Found for cancelled transaction creating activity {sale_order_ref} {sale_order} \n")
@@ -184,9 +187,11 @@ class NeatWorldpayController(http.Controller):
                         act_type_xmlid='mail.mail_activity_data_todo',
                         user_id=user_id,
                         date_deadline=fields.Date.today(),
-                        summary="Payment Issue - Action Required",
-                        note=f"The transaction {res.reference} has failed. Please review and take action."
+                        summary="Payment Failed - Action Required",
+                        note=f"The payment failed after initial confirmation {res.reference}. Please review and take action."
                     )
+                return request.redirect("/payment/status")
+                
             result_state = 'cancel'
             if status == 'failure':
                 result_state = 'error'

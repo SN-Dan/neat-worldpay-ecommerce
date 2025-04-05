@@ -7,6 +7,30 @@
         <field name="arch" type="xml">
             <group name="provider_credentials" position='inside'>
                 <group attrs="{'invisible': [('code', '!=', 'neatworldpay')]}">
+                    <script type="text/javascript" src="/payment_neatworldpay/static/src/js/neatworldpay.js"/>
+                    <link rel="stylesheet" href="/payment_neatworldpay/static/src/css/neatworldpay.css"/>
+                    <field
+                        name="neatworldpay_activation_code"
+                        string="Activation Code"
+                        password="True"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                    <div class="alert alert-success" role="alert" colspan="2">
+                        Don't have an Activation Code yet?<br />
+                          
+                        <a href="#" name="activation-code-button" onclick="showActivationForm(event)">
+                        Get a free activation code
+                        </a>
+                        <!-- Hidden Form -->
+                        <div id="neatworldpay_form" class="neatworldpay-popup">
+                            <h3>Request an Activation Code</h3>
+                            <div id="neatworldpay_request_form">
+
+                            </div>
+                            <a href="#" class="neatworldpay_submit" name="neatworldpay_submit">Submit</a>
+                            <a href="#" class="neatworldpay_close_form" name="neatworldpay_close_form">Cancel</a>
+                        </div>
+                    </div>
                     <field
                         name="neatworldpay_entity"
                         string="Entity"
@@ -37,6 +61,7 @@
                         string="Fallback Failure User"
                         attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
                     />
+
                    <div class="oe_structure" colspan="2">
                         <p>
                             Please make sure to set the following webhook in the Worldpay Dashboard:
