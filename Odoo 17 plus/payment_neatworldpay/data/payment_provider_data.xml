@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
     <record id="payment_method_neatworldpay" model="payment.method">
-        <field name="name">Neat Worldpay</field>
+        <field name="name">Worldpay</field>
         <field name="code">neatworldpay</field>
         <field name="image" type="base64"
             file="payment_neatworldpay/static/description/icon.png" />
     </record>
     <record id="payment_provider_neatworldpay" model="payment.provider">
         <field name="code">neatworldpay</field>
-        <field name="name">Neat Worldpay</field>
+        <field name="name">Worldpay</field>
         <field name="inline_form_view_id" ref="inline_form"/>
         <field name="allow_tokenization">False</field>
         <field name="image_128" type="base64"

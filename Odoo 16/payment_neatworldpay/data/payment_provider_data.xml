@@ -2,7 +2,7 @@
 <odoo noupdate="1">
     <record id="payment_provider_neatworldpay" model="payment.provider">
         <field name="code">neatworldpay</field>
-        <field name="name">Neat Worldpay</field>
+        <field name="name">Worldpay</field>
         <field name="state">enabled</field>
         <field name="module_id" ref="base.module_payment_neatworldpay" />
         <field name="image_128" type="base64" file="payment_neatworldpay/static/description/icon.png" />

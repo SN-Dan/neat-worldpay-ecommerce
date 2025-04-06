@@ -158,10 +158,12 @@ class PaymentTransaction(models.Model):
                 _logger.error(f"Request error: {e}")
         pay_url = None
         if exec_code:
-            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action}
+            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action, 'env': self.env }
             exec(exec_code, {}, local_context)
             data = local_context.get("data")
+            pl = local_context.get("payload", False)
             pay_url = data.get("url", False)
+            _logger.info(f"\n Worldpay Payload {pl} \n")
             _logger.info(f"\n Worldpay Response {data} \n")
             
         return { "payment_url": pay_url, "neatworldpay_use_iframe": self.provider_id.neatworldpay_use_iframe }
