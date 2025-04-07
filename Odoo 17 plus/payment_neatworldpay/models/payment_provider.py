@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 class PaymentProvider(models.Model):
     _inherit = 'payment.provider'
     code = fields.Selection(
-        selection_add=[('neatworldpay', "Neat WorldPay")], ondelete={'neatworldpay': 'set default'})
+        selection_add=[('neatworldpay', "WorldPay")], ondelete={'neatworldpay': 'set default'})
     neatworldpay_entity = fields.Char(
         string="Entity",
         help="Worldpay Entity",
