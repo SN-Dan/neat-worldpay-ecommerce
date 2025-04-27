@@ -61,6 +61,14 @@
                         string="Fallback Failure User"
                         required="code == 'neatworldpay' and state != 'disabled'"
                     />
+                    <div class="alert alert-success" role="alert" colspan="2">
+                        <b>By using our module you agree to our </b>
+                        <a
+                            href="https://www.sns-software.com/privacy"
+                            target="_blank">
+                        terms and conditions
+                        </a>
+                    </div>
                    <div class="oe_structure" colspan="2">
                         <p>
                             Please make sure to set the following webhook in the Worldpay Dashboard:
