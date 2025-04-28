@@ -62,7 +62,7 @@
                         attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
                     />
                     <div class="alert alert-success" role="alert" colspan="2">
-                        <b>By using our module you agree to our </b>
+                        <b>By using this module you agree to our </b>
                         <a
                             href="https://www.sns-software.com/privacy"
                             target="_blank">
