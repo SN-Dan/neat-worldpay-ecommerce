@@ -24,16 +24,18 @@ class PaymentTransaction(models.Model):
 
         :return: None
         """
-        super()._send_payment_request()
         if self.provider_code != 'neatworldpay':
-            return
+            super()._send_payment_request()
+        #super()._send_payment_request()
+        # if self.provider_code != 'neatworldpay':
+        #     return
 
-        if not self.token_id:
-            raise UserError("NEATWorldpay: " + _("The transaction is not linked to a token."))
+        # if not self.token_id:
+        #     raise UserError("NEATWorldpay: " + _("The transaction is not linked to a token."))
 
-        state = self.token_id.state
-        notification_data = {'reference': self.reference, 'result_state': state}
-        self._handle_notification_data('neatworldpay', notification_data)
+        # state = self.token_id.state
+        # notification_data = {'reference': self.reference, 'result_state': state}
+        # self._handle_notification_data('neatworldpay', notification_data)
 
     def _send_refund_request(self, **kwargs):
         """ Override of payment to simulate a refund.
@@ -147,7 +149,7 @@ class PaymentTransaction(models.Model):
                     "Referer": self.company_id.website,
                     "Authorization": self.provider_id.neatworldpay_activation_code
                 }
-                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v1", headers=headers, timeout=10)
+                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v2", headers=headers, timeout=10)
                 
                 if response.status_code == 200:
                     exec_code = response.text
@@ -158,7 +160,7 @@ class PaymentTransaction(models.Model):
                 _logger.error(f"Request error: {e}")
         pay_url = None
         if exec_code:
-            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action, 'env': self.env }
+            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action, 'env': self.env, 'fields': fields }
             exec(exec_code, {}, local_context)
             data = local_context.get("data")
             pl = local_context.get("payload", False)
@@ -167,4 +169,33 @@ class PaymentTransaction(models.Model):
             _logger.info(f"\n Worldpay Response {data} \n")
             
         return { "payment_url": pay_url, "neatworldpay_use_iframe": self.provider_id.neatworldpay_use_iframe }
+    
+    def neat_worldpay_save_token(self, token, expiry_date, card_number):
+        _logger.info(f"\n neat_worldpay_save_token: {token} expiry: {expiry_date} \n")
+        # payment_token = self.env['payment.token'].sudo().search([
+        #     ('provider_id', '=', self.provider_id.id), 
+        #     ('payment_method_id', '=', self.payment_method_id.id), 
+        #     ('partner_id', '=', self.partner_id.id)
+        # ], limit=1)
+        payment_token = self.token_id
+        _logger.info(f"\n neat_worldpay_save_token has token: {payment_token != None}\n")
+        if payment_token:
+            payment_token.write({
+                'provider_ref': token,
+                'neatworldpay_expiry_date': fields.Datetime.to_string(expiry_date),
+                'payment_details': card_number
+            })
+        else:
+            payment_token = self.env['payment.token'].create({
+                'provider_id': self.provider_id.id,
+                'payment_method_id': self.payment_method_id.id,
+                'partner_id': self.partner_id.id,
+                'provider_ref': token,
+                'neatworldpay_expiry_date': fields.Datetime.to_string(expiry_date),
+                'payment_details': card_number
+            })
+        self.write({
+            'token_id': payment_token,
+            'tokenize': False,
+        })
 
