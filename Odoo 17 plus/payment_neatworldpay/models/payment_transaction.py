@@ -172,12 +172,12 @@ class PaymentTransaction(models.Model):
     
     def neat_worldpay_save_token(self, token, expiry_date, card_number):
         _logger.info(f"\n neat_worldpay_save_token: {token} expiry: {expiry_date} \n")
-        # payment_token = self.env['payment.token'].sudo().search([
-        #     ('provider_id', '=', self.provider_id.id), 
-        #     ('payment_method_id', '=', self.payment_method_id.id), 
-        #     ('partner_id', '=', self.partner_id.id)
-        # ], limit=1)
-        payment_token = self.token_id
+        payment_token = self.env['payment.token'].sudo().search([
+            ('provider_id', '=', self.provider_id.id), 
+            ('payment_method_id', '=', self.payment_method_id.id), 
+            ('partner_id', '=', self.partner_id.id),
+            ('payment_details', '=', card_number)
+        ], limit=1)
         _logger.info(f"\n neat_worldpay_save_token has token: {payment_token != None}\n")
         if payment_token:
             payment_token.write({
