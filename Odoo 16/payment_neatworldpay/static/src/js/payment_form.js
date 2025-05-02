@@ -79,6 +79,54 @@ const neatWorldpayMixin = {
             window.top.location.href = processingValues.payment_url
         }
     },
+    /**
+     * Redirect the customer to the status route.
+     *
+     * For a provider to redefine the processing of the payment by token flow, it must override
+     * this method.
+     *
+     * @private
+     * @param {string} provider_code - The code of the token's provider
+     * @param {number} tokenId - The id of the token handling the transaction
+     * @param {object} processingValues - The processing values of the transaction
+     * @return {undefined}
+     */
+    _processTokenPayment: (code, tokenId, processingValues) => {
+        if (code !== 'neatworldpay') {
+            this._super(...arguments);
+            return;
+        }
+        if(!processingValues.payment_url) {
+            alert("Worldpay integration is not active. Please update the activation code.");
+        }
+        
+        if(processingValues.neatworldpay_use_iframe) {
+            this._enableButton()
+            $('body').unblock();
+            const popup = document.querySelector('#neatworldpay_popup');
+            if (popup) popup.style.display = 'block';
+            var customOptions = {
+                url: processingValues.payment_url,
+                type: 'iframe',
+                inject: 'immediate',
+                target: 'neatworldpay-container',
+                accessibility: true,
+                debug: false,
+                resultCallback: (responseData) => {
+                    var status = responseData.order.status
+                    if(status === 'cancelled_by_shopper') {
+                        location.reload();
+                    }
+                }
+            };
+
+            var libraryObject = new WPCL.Library();
+            libraryObject.setup(customOptions);
+        }
+        else {
+            window.top.location.href = processingValues.payment_url
+        }
+    },
 
 }
 

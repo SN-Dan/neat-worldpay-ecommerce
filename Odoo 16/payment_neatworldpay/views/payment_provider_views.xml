@@ -9,12 +9,6 @@
                 <group attrs="{'invisible': [('code', '!=', 'neatworldpay')]}">
                     <script type="text/javascript" src="/payment_neatworldpay/static/src/js/neatworldpay.js"/>
                     <link rel="stylesheet" href="/payment_neatworldpay/static/src/css/neatworldpay.css"/>
-                    <field
-                        name="neatworldpay_activation_code"
-                        string="Activation Code"
-                        password="True"
-                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
-                    />
                     <div class="alert alert-success" role="alert" colspan="2">
                         Don't have an Activation Code yet?<br />
                           
@@ -31,6 +25,17 @@
                             <a href="#" class="neatworldpay_close_form" name="neatworldpay_close_form">Cancel</a>
                         </div>
                     </div>
+                    <field
+                        name="neatworldpay_reset_code"
+                        string="Update Module Cache"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
+                    <field
+                        name="neatworldpay_activation_code"
+                        string="Activation Code"
+                        password="True"
+                        attrs="{'required': [('code', '=', 'neatworldpay'), ('state', '!=', 'disabled')]}"
+                    />
                     <field
                         name="neatworldpay_entity"
                         string="Entity"

@@ -15,5 +15,6 @@
         <field name="neatworldpay_username">YourWorldpayUsername</field>
         <field name="neatworldpay_password">YourWorldpayPassword</field>
         <field name="neatworldpay_connection_url">https://your-odoo-instance.com</field>
+        <field name="neatworldpay_reset_code">False</field>
     </record>
 </odoo>

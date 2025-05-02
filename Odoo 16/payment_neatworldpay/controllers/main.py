@@ -8,6 +8,7 @@ import time
 from odoo.http import request
 from odoo import _, http, fields
 from odoo.exceptions import ValidationError
+from datetime import datetime
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +65,8 @@ class NeatWorldpayController(http.Controller):
 
                 if res:
                     state = event_details.get("type", False)
-                    if state != "sentForAuthorization" and state != "sentForSettlement":
+                    tokenization = event_details.get("tokenPaymentInstrument", False)
+                    if state and state != "sentForAuthorization" and state != "sentForSettlement":
                         if state == "authorized":
                             count = 0
                             _logger.info(f"\n WH State is Authorized {res.reference} \n")
@@ -133,6 +135,18 @@ class NeatWorldpayController(http.Controller):
                         res.sudo()._handle_notification_data(
                             "neatworldpay", data
                         )
+                    elif not state and tokenization:
+                        token = tokenization.get("href", False)
+                        expiry = event_details.get("tokenExpiryDateTime", False)
+                        payment_details = event_details.get("paymentInstrument", False)
+                        card_number = ""
+                        if payment_details:
+                            card_number = payment_details.get("cardNumber", False)
+                            card_number = card_number[-4:]
+                        _logger.info(f"\n Tokenization Entered token: {token} expiry: {expiry} \n")
+                        if token and expiry:
+                            expiry_date = datetime.strptime(expiry, "%Y-%m-%dT%H:%M:%SZ")
+                            res.sudo().neat_worldpay_save_token(token, expiry_date, card_number)
             else:
                 return request.make_json_response({
                     'error': 'Bad Request',
