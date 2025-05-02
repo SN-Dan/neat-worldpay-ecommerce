@@ -31,6 +31,7 @@ class PaymentProvider(models.Model):
     neatworldpay_cached_code = fields.Char(
         string="Cached Code", help="Cached Code")
     neatworldpay_use_iframe = fields.Boolean(string="Use iFrame", help="iFrame allows you to process the payment on your Odoo web page instead of being redirected to a Worldpay website. It provides a more seamless user experience.", default=True)
+    neatworldpay_reset_code = fields.Boolean(string="Update Module Cache", help="If set to true it will update the module cache", default=False)
     
     def _default_neatworldpay_connection_url(self):
         """Set the default connection URL to the company's website URL."""
@@ -82,8 +83,9 @@ class PaymentProvider(models.Model):
         _logger.info(f"neatworldpay_activation_code {vals.get('neatworldpay_activation_code')}")
         if vals.get('neatworldpay_activation_code'):
             _logger.info(f"old neatworldpay_activation_code {self.neatworldpay_activation_code}")
-            if vals.get('neatworldpay_activation_code') != self.neatworldpay_activation_code:
+            if vals.get('neatworldpay_activation_code') != self.neatworldpay_activation_code or vals.get('neatworldpay_reset_code'):
                 _logger.info(f"Before code")
+                vals['neatworldpay_reset_code'] = False
                 code = self.neatworldpay_get_code(vals['neatworldpay_activation_code'])
                 _logger.info(f"Code: {code != None}")
                 if code:
@@ -91,6 +93,16 @@ class PaymentProvider(models.Model):
                 else:
                     _logger.info(f"Raised error for code")
                     raise ValidationError(_("The activation code is invalid. Please check and try again."))
+        elif vals.get('neatworldpay_reset_code'):
+            _logger.info(f"Before code")
+            vals['neatworldpay_reset_code'] = False
+            code = self.neatworldpay_get_code(self.neatworldpay_activation_code)
+            _logger.info(f"Code: {code}")
+            if code:
+                vals['neatworldpay_cached_code'] = code
+            else:
+                _logger.info(f"Raised error for code")
+                raise ValidationError(_("The activation code is invalid. Please check and try again."))
         return super(PaymentProvider, self).create(vals)
 
     def write(self, vals):
@@ -98,8 +110,9 @@ class PaymentProvider(models.Model):
         _logger.info(f"neatworldpay_activation_code {vals.get('neatworldpay_activation_code')}")
         if vals.get('neatworldpay_activation_code'):
             _logger.info(f"old neatworldpay_activation_code {self.neatworldpay_activation_code}")
-            if vals.get('neatworldpay_activation_code') != self.neatworldpay_activation_code:
+            if vals.get('neatworldpay_activation_code') != self.neatworldpay_activation_code or vals.get('neatworldpay_reset_code'):
                 _logger.info(f"Before code")
+                vals['neatworldpay_reset_code'] = False
                 code = self.neatworldpay_get_code(vals['neatworldpay_activation_code'])
                 _logger.info(f"Code: {code}")
                 if code:
@@ -107,6 +120,16 @@ class PaymentProvider(models.Model):
                 else:
                     _logger.info(f"Raised error for code")
                     raise ValidationError(_("The activation code is invalid. Please check and try again."))
+        elif vals.get('neatworldpay_reset_code'):
+            _logger.info(f"Before code")
+            vals['neatworldpay_reset_code'] = False
+            code = self.neatworldpay_get_code(self.neatworldpay_activation_code)
+            _logger.info(f"Code: {code}")
+            if code:
+                vals['neatworldpay_cached_code'] = code
+            else:
+                _logger.info(f"Raised error for code")
+                raise ValidationError(_("The activation code is invalid. Please check and try again."))
         return super(PaymentProvider, self).write(vals)
 
     def _compute_feature_support_fields(self):

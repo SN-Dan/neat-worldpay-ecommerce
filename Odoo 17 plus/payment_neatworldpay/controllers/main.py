@@ -142,7 +142,7 @@ class NeatWorldpayController(http.Controller):
                         card_number = ""
                         if payment_details:
                             card_number = payment_details.get("cardNumber", False)
-                            card_number = "****" + card_number[4:]
+                            card_number = card_number[-4:]
                         _logger.info(f"\n Tokenization Entered token: {token} expiry: {expiry} \n")
                         if token and expiry:
                             expiry_date = datetime.strptime(expiry, "%Y-%m-%dT%H:%M:%SZ")

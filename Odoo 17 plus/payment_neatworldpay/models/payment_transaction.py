@@ -176,7 +176,8 @@ class PaymentTransaction(models.Model):
             ('provider_id', '=', self.provider_id.id), 
             ('payment_method_id', '=', self.payment_method_id.id), 
             ('partner_id', '=', self.partner_id.id),
-            ('payment_details', '=', card_number)
+            ('payment_details', '=', card_number),
+            ('active', '=', True)
         ], limit=1)
         _logger.info(f"\n neat_worldpay_save_token has token: {payment_token != None}\n")
         if payment_token:
