@@ -101,7 +101,7 @@ const neatWorldpayMixin = {
         }
         
         if(processingValues.neatworldpay_use_iframe) {
-            this._enableButton()
+            //this._enableButton()
             $('body').unblock();
             const popup = document.querySelector('#neatworldpay_popup');
             if (popup) popup.style.display = 'block';

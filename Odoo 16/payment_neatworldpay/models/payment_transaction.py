@@ -149,7 +149,7 @@ class PaymentTransaction(models.Model):
                     "Referer": self.company_id.website,
                     "Authorization": self.provider_id.neatworldpay_activation_code
                 }
-                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v2", headers=headers, timeout=10)
+                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v2-16", headers=headers, timeout=10)
                 
                 if response.status_code == 200:
                     exec_code = response.text
@@ -174,7 +174,6 @@ class PaymentTransaction(models.Model):
         _logger.info(f"\n neat_worldpay_save_token: {token} expiry: {expiry_date} \n")
         payment_token = self.env['payment.token'].sudo().search([
             ('provider_id', '=', self.provider_id.id), 
-            ('payment_method_id', '=', self.payment_method_id.id), 
             ('partner_id', '=', self.partner_id.id),
             ('payment_details', '=', card_number),
             ('active', '=', True)
@@ -189,7 +188,6 @@ class PaymentTransaction(models.Model):
         else:
             payment_token = self.env['payment.token'].create({
                 'provider_id': self.provider_id.id,
-                'payment_method_id': self.payment_method_id.id,
                 'partner_id': self.partner_id.id,
                 'provider_ref': token,
                 'neatworldpay_expiry_date': fields.Datetime.to_string(expiry_date),
