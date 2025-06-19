@@ -6,7 +6,8 @@ import logging
 import pprint
 import time
 from odoo.http import request
-from odoo import _, http, fields
+from odoo import _, http, fields, sql_db
+from contextlib import closing
 from odoo.exceptions import ValidationError
 from datetime import datetime
 
@@ -71,6 +72,17 @@ class NeatWorldpayController(http.Controller):
                             count = 0
                             _logger.info(f"\n WH State is Authorized {res.reference} \n")
                             while count < 30:
+                                if not res or res.state == "done":
+                                    _logger.info(f"\n Transaction was finished while waiting for pending status {res.reference} \n")
+                                    return request.make_json_response({
+                                        'error': 'OK',
+                                        'message': 'OK'
+                                    }, status=200)
+
+                                _logger.info(f"\n Current RES State is {res.state} {res.reference} \n")
+                                if res.state == "pending":
+                                    break
+
                                 time.sleep(1)
                                 request.env.cr.commit()
                                 res = (
@@ -82,17 +94,6 @@ class NeatWorldpayController(http.Controller):
                                         ("state", "not in", ["done", "cancel", "error"])
                                     ], limit=1)
                                 )
-
-                                if not res or res.state == "done":
-                                    _logger.info(f"\n Transaction was finished while waiting for pending status {res.reference} \n")
-                                    return request.make_json_response({
-                                        'error': 'OK',
-                                        'message': 'OK'
-                                    }, status=200)
-
-                                _logger.info(f"\n Current RES State is {res.state} {res.reference} \n")
-                                if res.state == "pending":
-                                    break
 
                                 count+=1
 
@@ -165,16 +166,17 @@ class NeatWorldpayController(http.Controller):
 
 
     @http.route(
-        result_action + "/<string:status>",
+        result_action + "/<string:status>/<string:transaction_key>",
         type="http",
         auth="public",
         csrf=False,
         save_session=False,
     )
-    def worldpay_result(self, status, **kwargs):
+    def worldpay_result(self, status, transaction_key, **kwargs):
         _logger.info(f"\n Status {status} \n")
         _logger.info(f"\n Redirect Path {request.httprequest.path} \n")
         _logger.info(f"\n Kwargs {kwargs} \n")
+        
         res = (
         request.env["payment.transaction"]
             .sudo()
@@ -185,6 +187,18 @@ class NeatWorldpayController(http.Controller):
             ], limit=1)
         )
         if res:
+            if status == 'success':
+                if not res.neatworldpay_validation_hash or not res.neatworldpay_validate_transaction_key(transaction_key):
+                    return request.make_json_response({
+                        'error': 'Not Authorized',
+                        'message': 'Not Authorized'
+                    }, status=401)
+            elif status == 'failure':
+                if not res.neatworldpay_failure_validation_hash or not res.neatworldpay_validate_failure_transaction_key(transaction_key):
+                    return request.make_json_response({
+                        'error': 'Not Authorized',
+                        'message': 'Not Authorized'
+                    }, status=401)
             if res.state == "done" and (status == "failure" or status == "cancel"):
                 sale_order_ref = res.reference.split("-")[0]
                 _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")
@@ -209,14 +223,20 @@ class NeatWorldpayController(http.Controller):
             result_state = 'cancel'
             if status == 'failure':
                 result_state = 'error'
-            elif status == 'success' or status == 'pending':
+            elif status == 'success':
+                result_state = 'done'
+            elif status == 'pending':
                 result_state = 'pending'
+
             data = {
                 'reference': kwargs.get("reference", False),
                 'result_state': result_state
             }
-            res.sudo()._handle_notification_data(
-                "neatworldpay", data
-            )
+            try:
+                res.sudo()._handle_notification_data(
+                    "neatworldpay", data
+                )
+            except Exception as e:
+                _logger.error(f"Error handling notification data for transaction {res.reference}: {e}")
 
         return request.redirect("/payment/status")
