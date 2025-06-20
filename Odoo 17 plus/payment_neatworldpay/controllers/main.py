@@ -189,16 +189,10 @@ class NeatWorldpayController(http.Controller):
         if res:
             if status == 'success':
                 if not res.neatworldpay_validation_hash or not res.neatworldpay_validate_transaction_key(transaction_key):
-                    return request.make_json_response({
-                        'error': 'Not Authorized',
-                        'message': 'Not Authorized'
-                    }, status=401)
+                    return request.redirect("/payment/status")
             elif status == 'failure':
                 if not res.neatworldpay_failure_validation_hash or not res.neatworldpay_validate_failure_transaction_key(transaction_key):
-                    return request.make_json_response({
-                        'error': 'Not Authorized',
-                        'message': 'Not Authorized'
-                    }, status=401)
+                    return request.redirect("/payment/status")
             if res.state == "done" and (status == "failure" or status == "cancel"):
                 sale_order_ref = res.reference.split("-")[0]
                 _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")

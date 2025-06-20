@@ -9,7 +9,7 @@
                 <group attrs="{'invisible': [('code', '!=', 'neatworldpay')]}">
                     <script type="text/javascript" src="/payment_neatworldpay/static/src/js/neatworldpay.js"/>
                     <link rel="stylesheet" href="/payment_neatworldpay/static/src/css/neatworldpay.css"/>
-                    <div class="alert alert-success" role="alert" colspan="2">
+                    <div class="alert alert-success" role="alert" colspan="2" attrs="{'invisible': [('neatworldpay_activation_code', '!=', False)]}">
                         Don't have an Activation Code yet?<br />
                           
                         <a href="#" name="activation-code-button" onclick="showActivationForm(event)">

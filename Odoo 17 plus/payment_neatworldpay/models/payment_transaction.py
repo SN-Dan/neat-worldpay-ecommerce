@@ -20,6 +20,7 @@ class PaymentTransaction(models.Model):
     # New fields for transaction key hashing
     neatworldpay_validation_hash = fields.Char(string='Success Validation Hash', default=None)
     neatworldpay_failure_validation_hash = fields.Char(string='Failure Validation Hash', default=None)
+    neatworldpay_validation_attempts = fields.Integer(string='Validation Attempts', default=0)
 
     # Odoo's password context for hashing
     _pwd_context = CryptContext(
@@ -79,12 +80,18 @@ class PaymentTransaction(models.Model):
 
     def neatworldpay_validate_transaction_key(self, transaction_key):
         """
-        Validate a success transaction key against the stored hash.
+        Validate a success transaction key against the stored hash with retry mechanism.
+        Maximum of 3 failed attempts allowed.
         
         :param str transaction_key: The success transaction key to validate
         :return: bool: True if transaction key matches, False otherwise
         """
         try:
+            # Check if maximum failed attempts reached
+            if self.neatworldpay_validation_attempts >= 3:
+                _logger.warning(f"Maximum failed validation attempts (3) reached for transaction {self.reference}")
+                return False
+            
             if not self.neatworldpay_validation_hash:
                 _logger.warning(f"No success validation hash found for transaction {self.reference}")
                 return False
@@ -95,7 +102,9 @@ class PaymentTransaction(models.Model):
             if is_valid:
                 _logger.info(f"Success transaction key validated successfully for transaction {self.reference}")
             else:
-                _logger.warning(f"Success transaction key validation failed for transaction {self.reference}")
+                # Increment failed attempt counter only when validation fails
+                self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+                _logger.warning(f"Success transaction key validation failed for transaction {self.reference} (failed attempt {self.neatworldpay_validation_attempts})")
             
             return is_valid
             
