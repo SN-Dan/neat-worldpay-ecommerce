@@ -31,7 +31,7 @@ class NeatWorldpayController(http.Controller):
 
     @http.route('/.well-known/apple-developer-merchantid-domain-association', type='http', auth='public', csrf=False)
     def apple_pay_association(self, **kwargs):
-        file_path = "/your_module_name/static/.well-known/apple-developer-merchantid-domain-association"
+        file_path = "/payment_neatworldpay/static/.well-known/apple-developer-merchantid-domain-association"
         return request.make_response(
             request.env['ir.qweb']._render(file_path),
             [('Content-Type', 'text/plain')]
