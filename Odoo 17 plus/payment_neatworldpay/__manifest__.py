@@ -4,7 +4,13 @@
     'category': 'Accounting/Payment Providers',
     'sequence': 350,
     'summary': "Worldpay online payments integration by SNS.",
-    'description': " ",
+    'description': """
+        Worldpay online payments integration for Odoo.
+        
+        LICENSE: This is proprietary software provided free of charge for use only.
+        Redistribution and modification are strictly prohibited.
+        See LICENSE file for complete terms.
+    """,
     'depends': ['payment'],
     'data': [
         'views/payment_provider_views.xml',
@@ -24,5 +30,5 @@
             'payment_neatworldpay/static/src/js/neatworldpay.js',
         ]
     },
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
 }

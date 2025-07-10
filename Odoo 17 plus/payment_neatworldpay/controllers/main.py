@@ -1,3 +1,6 @@
+# Original Author: Daniel Stoynev
+# Copyright (c) 2025 SNS Software Ltd. All rights reserved.
+
 import base64
 import binascii
 import hashlib
