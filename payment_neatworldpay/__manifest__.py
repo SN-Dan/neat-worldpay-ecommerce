@@ -11,7 +11,11 @@
         Redistribution and modification are strictly prohibited.
         See LICENSE file for complete terms.
     """,
+    'author': 'SNS Software',
+    'maintainer': 'SNS Software',
+    'website': 'https://www.sns-software.com',
     'depends': ['payment'],
+    'images': ['static/description/main.gif'],
     'data': [
         'views/payment_provider_views.xml',
         'views/payment_neatworldpay_templates.xml',
