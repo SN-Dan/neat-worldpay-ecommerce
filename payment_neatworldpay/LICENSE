@@ -1,33 +1,25 @@
-PROPRIETARY LICENSE AGREEMENT
+GNU LESSER GENERAL PUBLIC LICENSE
 
-Copyright (c) 2025 SNS Software Ltd. All rights reserved.
-
-This software is proprietary and confidential. Unauthorized copying, distribution, 
-modification, public display, or public performance of this software is strictly 
-prohibited.
-
-PERMITTED USES:
-- You may install and use this software on your own systems
-- You may use this software for your business operations
-- You may make backup copies for your own use
-
-PROHIBITED USES:
-- You may NOT redistribute this software to others
-- You may NOT modify, alter, or create derivative works
-- You may NOT reverse engineer, decompile, or disassemble
-- You may NOT sell, lease, or sublicense this software
-- You may NOT publicly display or perform this software
-- You may NOT remove or alter copyright notices
-
-TERMINATION:
-This license terminates automatically if you fail to comply with its terms.
-
-DISCLAIMER:
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-
-For licensing inquiries, contact: support@sns-software.com 
-
+Copyright (c) 2025 SNS Software Ltd.
 Original Author: Daniel Stoynev
 Distributed by SNS Software Ltd.
+
+This module extends Odoo's payment framework.
+Odoo is a trademark of Odoo S.A.
+
+This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3).
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+For licensing inquiries, contact: support@sns-software.com
