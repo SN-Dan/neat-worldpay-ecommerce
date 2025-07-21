@@ -3,7 +3,7 @@
     'version': '2.0',
     'category': 'Accounting/Payment Providers',
     'sequence': 350,
-    'summary': "Worldpay online payments integration by SNS.",
+    'summary': "Worldpay E-Commerce/Online Payments Official Integration.",
     'description': """
         Worldpay online payments integration for Odoo.
         Original Author: Daniel Stoynev
