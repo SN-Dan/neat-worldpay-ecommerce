@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Provider: Worldpay</title>
+</head>
+<body>
+    <h1>Worldpay E-Commerce/Online Payments Official Integration</h1>
+    <br/>
+    <h3>Start accepting e-commerce/online payments effortlessly with Worldpay</h3>
+    <br/>
+    <p><b>As a Worldpay partner, we offer:</b></p>
+    <ul><b>Premium rates for new customers</b></ul>
+    <ul><b>Attractive opportunities for Odoo partners</b></ul>
+
+    <p>Contact us for more information on our email: <strong>support@sns-software.com</strong></p>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odoo App Installation</title>
+</head>
+<body>
+    <img style="width: 800px; height: auto;" src="payment.gif" alt="Bar">
+    <br/>
+    <h2>Installation</h2>
+    <ol>
+        <li>Upon clicking the 'Download' button on the app, you will receive the link to download the zip file of the module.</li>
+        <li>Extract the file on your system after the download finishes. You will be able to see a folder named- 'payment_neatworldpay'.</li>
+        <li>Copy and paste this folder inside your Odoo Add-Ons path.</li>
+        <li>Now, open the Odoo App and click on the Settings menu.Scroll to the very bottom of settings. Here, click on Activate the "Developer Mode".</li>
+        <li>Then, open the Apps menu and click on the top bar ‘Update Apps List’.</li>
+        <li>In the search bar, remove all the filters and search 'Worldpay'.</li>
+        <li>You will be able to see the module 'Payment Provider: Worldpay' in the search result. Click on ‘Install’ to install it.</li>
+    </ol>
+    <h2>Setup</h2>
+    <ol>
+        <li>In Odoo goto Settings -> Sale -> Payment Providers and select Worldpay</li>
+        <li>There are 3 states available (Disabled, Enabled, Test Mode) select Enabled if you are looking to go live and Test Mode if you first want to do a test run payment and change it later to Enabled for live.</li>
+        <li>You will need an Activation Code for this module and to get it you can click the "Get Free Activation Code" link and fill out the form or contact us at: support@sns-software.com and we will provide the code shortly.</li>
+        <li>Next we will need to enter the Entity, Username and Password from your Worldpay Dashboard (we will help you setup one if you don't have it) </li>
+        <li>Once registered go to https://dashboard.worldpay.com login and go to the Developer Tools section, copy your entity and paste it inside Odoo.</li>
+        <li>Click on API Credentials to generate a Username and Password. in Try Mode you can do test payments if you have selected Test Mode in Odoo otherwise select Live Mode and click Generate Credentials.</li>
+        <li>Copy the Username and Password into Odoo.</li>
+        <li>iFrame checked allows you to keep the user on your Odoo website while making the payment. If you uncheck it the user will be redirected to the worldpay website to complete the payment.</li>
+        <li>The Odoo Server URL is your current Odoo website domain which you see at the top of the browser. It should be automatically filled but if not just copy it from your browser. Example : https://www.example.com</li>
+        <li>Select a Fallback Failure User. This user should be someone responsible to whom we are going to generate an activity to for a Sale Order payment issue if there is no responsible user for the given Sale Order.</li>
+        <li>Save your changes</li>
+        <li>Finally we need to set the webhook. We are again going to copy your Odoo domain (example: https://www.example.com) and add this "/neatworldpay/wh" to the back of it and it should end up looking like: https://www.example.com/neatworldpay/wh</li>
+        <li>Copy this URL and we again need to go to https://dashboard.worldpay.com , login and open Developer Tools</li>
+        <li>You should see the Webhooks section adn you will be given the option to add the Webhook. Paste the constructed URL into the URL field and save.</li>
+        <li>You are now ready to take your first payments! If you have selected Testing mode with Try Mode credentials you can use the test cards form here: https://developer.worldpay.com/products/access/hosted-payment-pages/testing</li>
+        
+        <li>Tips: Remember to configure your journals accordingly as well as your outstanding receipts account (in order to have your invoices in state "Paid" rather then "In Payment")
+    </ol>
+    <h2>Support</h2>
+        <p>Email: <b>support@sns-software.com</b></p>
+    </div>
+</body>
+</html>
