@@ -1,25 +1,27 @@
 /** @odoo-module */
 
 import { _t } from '@web/core/l10n/translation';
-import paymentForm from '@payment/js/payment_form';
+import { patch } from '@web/core/utils/patch';
 
-paymentForm.include({
+import { PaymentForm } from '@payment/interactions/payment_form';
+
+patch(PaymentForm.prototype, {
 
      /**
      * Open the inline form of the selected payment option, if any.
      *
-     * @override method from @payment/js/payment_form
+     * @override method from @payment/interactions/payment_form
      * @private
      * @param {Event} ev
      * @return {void}
      */
     async _selectPaymentOption(ev) {
-        await this._super(...arguments);
+        await super._selectPaymentOption(...arguments);
     },
         /**
      * Prepare the inline form of Stripe for direct payment.
      *
-     * @override method from @payment/js/payment_form
+     * @override method from @payment/interactions/payment_form
      * @private
      * @param {number} providerId - The id of the selected payment option's provider.
      * @param {string} providerCode - The code of the selected payment option's provider.
@@ -30,7 +32,7 @@ paymentForm.include({
      */
     async _prepareInlineForm(providerId, providerCode, paymentOptionId, paymentMethodCode, flow) {
         if (providerCode !== 'neatworldpay') {
-            this._super(...arguments);
+            super._prepareInlineForm(...arguments);
             return;
         }
         
@@ -46,7 +48,7 @@ paymentForm.include({
     /**
      * feedback from a payment provider and redirect the customer to the status page.
      *
-     * @override method from payment.payment_form
+     * @override method from payment.interactions.payment_form
      * @private
      * @param {string} providerCode - The code of the selected payment option's provider.
      * @param {number} paymentOptionId - The id of the selected payment option.
@@ -56,7 +58,7 @@ paymentForm.include({
      */
     async _processDirectFlow(providerCode, paymentOptionId, paymentMethodCode, processingValues) {
         if (providerCode !== 'neatworldpay') {
-            this._super(...arguments);
+            super._processDirectFlow(...arguments);
             return;
         }
         
@@ -64,7 +66,7 @@ paymentForm.include({
             alert("Worldpay integration is not active. Please update the activation code.");
         }
         if(processingValues.neatworldpay_use_iframe) {
-            this.call('ui', 'unblock');
+            this.env.bus.trigger('ui', 'unblock');
             const popup = document.querySelector('#neatworldpay_popup');
             if (popup) popup.style.display = 'block';
             var customOptions = {
@@ -92,7 +94,7 @@ paymentForm.include({
     /**
      * Redirect the customer to the status route.
      *
-     * @override method from payment.payment_form
+     * @override method from payment.interactions.payment_form
      * @private
      * @param {string} providerCode - The code of the selected payment option's provider.
      * @param {number} paymentOptionId - The id of the selected payment option.
@@ -102,7 +104,7 @@ paymentForm.include({
      */
     async _processTokenFlow(providerCode, paymentOptionId, paymentMethodCode, processingValues) {
         if (providerCode !== 'neatworldpay') {
-            this._super(...arguments);
+            super._processTokenFlow(...arguments);
             return;
         }
         
@@ -110,7 +112,7 @@ paymentForm.include({
             alert("Worldpay integration is not active. Please update the activation code.");
         }
         if(processingValues.neatworldpay_use_iframe) {
-            this.call('ui', 'unblock');
+            this.env.bus.trigger('ui', 'unblock');
             const popup = document.querySelector('#neatworldpay_popup');
             if (popup) popup.style.display = 'block';
             var customOptions = {

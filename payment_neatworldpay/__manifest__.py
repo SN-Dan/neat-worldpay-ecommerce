@@ -30,11 +30,11 @@
     'uninstall_hook': 'uninstall_hook',
     'assets': {
         'web.assets_frontend': [
-            'payment_neatworldpay/static/src/js/payment_form.js'
+            'payment_neatworldpay/static/src/interactions/payment_form.js'
         ],
         'web.assets_backend': [
             'payment_neatworldpay/static/src/css/neatworldpay.css',
-            'payment_neatworldpay/static/src/js/neatworldpay.js',
+            'payment_neatworldpay/static/src/interactions/neatworldpay.js',
         ]
     },
     'license': 'LGPL-3',

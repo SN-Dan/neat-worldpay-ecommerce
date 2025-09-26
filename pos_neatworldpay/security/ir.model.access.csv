@@ -1,4 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_neat_worldpay_payment_request_user,access.neat.worldpay.payment.request.user,model_neat_worldpay_payment_request,base.group_user,1,1,1,0
-access_neat_worldpay_payment_request_manager,access.neat.worldpay.payment.request.manager,model_neat_worldpay_payment_request,base.group_erp_manager,1,1,1,1
-access_neat.worldpay.security,access.neat.worldpay.security,model_neat_worldpay_security,base.group_erp_manager,1,1,1,1

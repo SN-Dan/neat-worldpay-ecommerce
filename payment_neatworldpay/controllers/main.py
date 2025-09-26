@@ -11,7 +11,7 @@ import logging
 import pprint
 import time
 from odoo.http import request
-from odoo import _, http, fields, sql_db
+from odoo import _, api, http, fields, sql_db
 from contextlib import closing
 from odoo.exceptions import ValidationError
 from datetime import datetime
@@ -138,7 +138,7 @@ class NeatWorldpayController(http.Controller):
                             'reference': event_details.get("transactionReference", False),
                             'result_state': state
                         }
-                        res.sudo()._handle_notification_data(
+                        res.sudo()._process(
                             "neatworldpay", data
                         )
                     elif not state and tokenization:
@@ -232,7 +232,7 @@ class NeatWorldpayController(http.Controller):
                 'result_state': result_state
             }
             try:
-                res.sudo()._handle_notification_data(
+                res.sudo()._process(
                     "neatworldpay", data
                 )
             except Exception as e:

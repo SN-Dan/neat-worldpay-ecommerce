@@ -6,7 +6,7 @@
 import logging
 import base64
 import requests
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from werkzeug import urls
 from odoo.addons.payment_neatworldpay.controllers.main import NeatWorldpayController
@@ -15,6 +15,7 @@ import re
 from decimal import Decimal
 from odoo.tools import config, pycompat, ustr
 from passlib.context import CryptContext
+from odoo.addons.payment import utils as payment_utils
 
 _logger = logging.getLogger(__name__)
 
@@ -208,8 +209,8 @@ class PaymentTransaction(models.Model):
         tx._handle_notification_data('neatworldpay', notification_data)
 
         return child_void_tx
-
-    def _get_tx_from_notification_data(self, provider_code, notification_data):
+    @api.model
+    def _search_by_reference(self, provider_code, notification_data):
         """ Override of payment to find the transaction based on dummy data.
 
         :param str provider_code: The code of the provider that handled the transaction
@@ -218,7 +219,7 @@ class PaymentTransaction(models.Model):
         :rtype: recordset of `payment.transaction`
         :raise: ValidationError if the data match no transaction
         """
-        tx = super()._get_tx_from_notification_data(provider_code, notification_data)
+        tx = super()._search_by_reference(provider_code, notification_data)
         if provider_code != 'neatworldpay' or len(tx) == 1:
             return tx
 
@@ -230,7 +231,18 @@ class PaymentTransaction(models.Model):
             )
         return tx
 
-    def _process_notification_data(self, notification_data):
+    def _extract_amount_data(self, payment_data):
+        """Override of payment to extract the amount and currency from the payment data."""
+        if self.provider_code != 'neatworldpay':
+            return super()._extract_amount_data(payment_data)
+
+        _logger.info(f"\n Test Payment Data {payment_data} \n")
+        return {
+            'amount': self.amount,
+            'currency_code': self.currency_id.name,
+        }
+
+    def _apply_updates(self, notification_data):
         """ Override of payment to process the transaction based on dummy data.
 
         Note: self.ensure_one()
@@ -239,7 +251,7 @@ class PaymentTransaction(models.Model):
         :return: None
         :raise: ValidationError if inconsistent data were received
         """
-        super()._process_notification_data(notification_data)
+        super()._apply_updates(notification_data)
         if self.provider_code != 'neatworldpay':
             return
 
