@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worldpay Credit Card Payments Integration for Odoo</title>
+</head>
+<body>
+    <h1>Worldpay Credit Card Payments Integration for Odoo</h1>
+    <p><b>Easily receive card payments and send refunds with Worldpay - anywhere, any time.</b></p>
+
+    <p><b><strong>Installation:</strong> Don't hesitate to contact us for free help with the installation and premium Worldpay Terms by filling our contact form at 
+        <strong>support@sns-software.com</strong> 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odoo App Installation</title>
+</head>
+<body>
+    <div style="background: silver; margin-top: 20px; margin-bottom: 20px;">
+        <img style="width: 300px; height: auto;" src="full-feature.gif" alt="Bar">
+        <img style="width: 300px; height: auto;" src="wp-pax-no-print.gif" alt="Retail">
+    </div>
+    <h1>Installation</h1>
+    <p>Upon clicking the 'Download' button on the app, you will receive the link to download the zip file of the module.</p>
+    <p>Extract the file on your system after the download finishes. You will be able to see a folder named- ‘pos_worldpaye’.</p>
+    <p>Copy and paste this folder inside your Odoo Add-Ons path.</p>
+    <p>Now, open the Odoo App and click on the Settings menu.Scroll to the very bottom of settings. Here, click on Activate the "Developer Mode".</p>
+    <p>Then, open the Apps menu and click on the top bar ‘Update Apps List’.</p>
+    <p>In the search bar, remove all the filters and search ‘pos_neatworldpay’.</p>
+    <p>You will be able to see the module in the search result. Click on ‘Install’ to install it.</p>
+</body>
+    <h2>Setting up Odoo (One payment method is connected to a single Terminal Device, if a multi-terminal setup you will need to repeat the steps below for each terminal.)</h2
+    <ol>
+        <li>Create and configure a new Worldpay Payment Method in the Odoo Point of Sale app.</li>
+        <ol type="a">
+            <li>Go to the Point of Sale app. On the top Menu Bar click on “Configuration” then “Payment Methods”.</li>
+            <li>Click on the “New” button on the top left to create a new payment method.</li>
+            <li>Add a name for the payment method (e.g., "Worldpay Terminal 1").</li>
+            <li>Select a suitable Bank Journal.</li>
+            <li>Under “Select a Terminal,” choose “SN Worldpay Terminal”. Various new fields will show under once selected.</li>
+            <li>Create a unique password for “Terminal Master Password”. Save this password securely - you will need it later to setup your Android device.</li>
+            <li>Select a suitable Manager Group for completing transactions (normally "group_pos_user" will be sufficient).</li>
+            <li>Select Suitable Device type Android.</li>
+            <li>Up on saving the payment method a Terminal ID will be automatically generated. Copy this ID as you will need it along with the terminal password and your Odoo database URL in order to confiure your Payment Terminal</li>
+            <li>Under Configuration>Settings you can select the relevant Shop you want to setup. Under payment methods select the newly created payment for Worldpay (the session needs to be closed to perform this action)
+</li>
+        </ol>
+    </ol>
+    <h2>Setting up PAX Payment Terminal</h2    
+            <li>Make sure your Payment terminal is connected to the internet. </li>
+            <li>Find the "Worldpay POS For Odoo" app. If you don't see it, find the Max Store and install the app from it or contact your Worldpay representitive.</li>
+            <li>Once you open the app you will be asked to fill in the Odoo database URL in order to connect the device (Don't forget to add the https). Once done click continue </li>
+            <li>Enter the Terminal ID and the Terminal password you generated in Odoo</li>
+            <li>Lastly enter your Activation code. If you don't have one make sure to contact us at support@sns-software.com </li>
+    <ol>
+    <h2>Support</h2>
+        <p>Contact us: <b>www.sns-software.com</b></p>
+        <p>Email: <b>support@sns-software.com</b></p>
+        
+    </div>
+</body>
+</html>
