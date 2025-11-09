@@ -70,7 +70,7 @@ function showActivationForm(e) {
             }
             submitButton.textContent = "Sending..."
 
-            fetch("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/contact", {
+            fetch("https://api.sns-software.com/api/AcquirerLicense/contact", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

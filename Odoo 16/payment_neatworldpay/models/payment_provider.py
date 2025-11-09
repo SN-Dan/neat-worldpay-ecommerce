@@ -70,7 +70,7 @@ class PaymentProvider(models.Model):
                 "Referer": self.company_id.website,
                 "Authorization": activation_code
             }
-            response = requests.get("https://xgxl6uegelrr4377rvggcakjvi0djbts.lambda-url.eu-central-1.on.aws/api/AcquirerLicense/code?version=v3-16", headers=headers, timeout=10)
+            response = requests.get("https://api.sns-software.com/api/AcquirerLicense/code?version=v3-16", headers=headers, timeout=10)
             
             if response.status_code == 200:
                 return response.text
