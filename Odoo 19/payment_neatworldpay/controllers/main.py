@@ -64,7 +64,7 @@ class NeatWorldpayController(http.Controller):
                     .sudo()
                     .search([
                         ("reference", "=", event_details.get("transactionReference", False)),
-                        ("provider_code", "=", "neatworldpay"),
+                        ("provider_code", "in", ["neatworldpayvt", "neatworldpay"]),
                         ("state", "not in", ["cancel", "error"])
                     ], limit=1)
                 )
@@ -95,7 +95,7 @@ class NeatWorldpayController(http.Controller):
                                     .sudo()
                                     .search([
                                         ("reference", "=", event_details.get("transactionReference", False)),
-                                        ("provider_code", "=", "neatworldpay"),
+                                        ("provider_code", "in", ["neatworldpayvt", "neatworldpay"]),
                                         ("state", "not in", ["done", "cancel", "error"])
                                     ], limit=1)
                                 )
@@ -113,16 +113,23 @@ class NeatWorldpayController(http.Controller):
                         if res.state == "done" and (state == 'cancel' or state == 'error'):
                             sale_order_ref = res.reference.split("-")[0]
                             _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")
-                            sale_order = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
-                            if sale_order:
-                                _logger.info(f"\n Sale Order Found for cancelled transaction creating activity {sale_order_ref} {sale_order} \n")
-                                user_id = None
-                                if sale_order.user_id:
-                                    user_id = sale_order.user_id.id
-                                elif res.provider_id.neatworldpay_fallback_user_id:
-                                    user_id = int(res.provider_id.neatworldpay_fallback_user_id)
-                                
-                                sale_order.activity_schedule(
+                            target_record = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
+                            record_label = 'sale order'
+                            if not target_record:
+                                target_record = (
+                                    request.env["account.move"]
+                                    .sudo()
+                                    .search([
+                                        '|',
+                                        ('name', '=', sale_order_ref),
+                                        ('invoice_origin', '=', sale_order_ref)
+                                    ], limit=1)
+                                )
+                                record_label = 'invoice' if target_record else None
+                            if target_record:
+                                _logger.info(f"\n {record_label.title()} Found for cancelled transaction creating activity {sale_order_ref} {target_record} \n")
+                                user_id = target_record.user_id.id if target_record.user_id else None
+                                target_record.activity_schedule(
                                     act_type_xmlid='mail.mail_activity_data_todo',
                                     user_id=user_id,
                                     date_deadline=fields.Date.today(),
@@ -201,16 +208,23 @@ class NeatWorldpayController(http.Controller):
             if res.state == "done" and (status == "failure" or status == "cancel"):
                 sale_order_ref = res.reference.split("-")[0]
                 _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")
-                sale_order = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
-                if sale_order:
-                    _logger.info(f"\n Sale Order Found for cancelled transaction creating activity {sale_order_ref} {sale_order} \n")
-                    user_id = None
-                    if sale_order.user_id:
-                        user_id = sale_order.user_id.id
-                    elif res.provider_id.neatworldpay_fallback_user_id:
-                        user_id = int(res.provider_id.neatworldpay_fallback_user_id)
-                    
-                    sale_order.activity_schedule(
+                target_record = request.env["sale.order"].sudo().search([("name", "=", sale_order_ref)], limit=1)
+                record_label = 'sale order'
+                if not target_record:
+                    target_record = (
+                        request.env["account.move"]
+                        .sudo()
+                        .search([
+                            '|',
+                            ('name', '=', sale_order_ref),
+                            ('invoice_origin', '=', sale_order_ref)
+                        ], limit=1)
+                    )
+                    record_label = 'invoice' if target_record else None
+                if target_record:
+                    _logger.info(f"\n {record_label.title()} Found for cancelled transaction creating activity {sale_order_ref} {target_record} \n")
+                    user_id = target_record.user_id.id if target_record.user_id else None
+                    target_record.activity_schedule(
                         act_type_xmlid='mail.mail_activity_data_todo',
                         user_id=user_id,
                         date_deadline=fields.Date.today(),
