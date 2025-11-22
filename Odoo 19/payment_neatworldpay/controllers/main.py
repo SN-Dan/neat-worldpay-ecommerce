@@ -128,7 +128,11 @@ class NeatWorldpayController(http.Controller):
                                 record_label = 'invoice' if target_record else None
                             if target_record:
                                 _logger.info(f"\n {record_label.title()} Found for cancelled transaction creating activity {sale_order_ref} {target_record} \n")
-                                user_id = target_record.user_id.id if target_record.user_id else None
+                                user_id = None
+                                if target_record.user_id:
+                                    user_id = target_record.user_id.id
+                                elif res.provider_id.neatworldpay_fallback_user_id:
+                                    user_id = int(res.provider_id.neatworldpay_fallback_user_id)
                                 target_record.activity_schedule(
                                     act_type_xmlid='mail.mail_activity_data_todo',
                                     user_id=user_id,
@@ -223,7 +227,11 @@ class NeatWorldpayController(http.Controller):
                     record_label = 'invoice' if target_record else None
                 if target_record:
                     _logger.info(f"\n {record_label.title()} Found for cancelled transaction creating activity {sale_order_ref} {target_record} \n")
-                    user_id = target_record.user_id.id if target_record.user_id else None
+                    user_id = None
+                    if target_record.user_id:
+                        user_id = target_record.user_id.id
+                    elif res.provider_id.neatworldpay_fallback_user_id:
+                        user_id = int(res.provider_id.neatworldpay_fallback_user_id)
                     target_record.activity_schedule(
                         act_type_xmlid='mail.mail_activity_data_todo',
                         user_id=user_id,
