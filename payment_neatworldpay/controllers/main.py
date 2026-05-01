@@ -106,23 +106,24 @@ class NeatWorldpayController(http.Controller):
             link_rec.sudo().write({'status': result_state})
 
         invoices = link_rec.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
-        all_invoice_ids = link_rec.invoice_ids.ids
+        invoice_names = ', '.join(link_rec.invoice_ids.mapped('name'))
         if result_state == 'done' and invoices:
             wizard_ctx = {
                 'active_model': 'account.move',
                 'active_ids': invoices.ids,
-                'active_id': invoices.ids[0],
+                'active_id': invoices.ids[0]
             }
             register_wizard_vals = {}
             if link_rec.provider_id.journal_id:
                 register_wizard_vals['journal_id'] = link_rec.provider_id.journal_id.id
+            register_wizard_vals['group_payment'] = True
             register_wizard = request.env['account.payment.register'].sudo().with_context(**wizard_ctx).create(register_wizard_vals)
             payments = register_wizard._create_payments()
 
             note_body = (
                 f"Payment was made for reference {reference}. "
                 f"Multiple invoices were paid together. "
-                f"Invoices in this payment link: {all_invoice_ids}"
+                f"Invoices in this payment link: {invoice_names}"
             )
             admin_user = request.env.ref('base.user_admin')
             for invoice in link_rec.invoice_ids:
@@ -155,7 +156,7 @@ class NeatWorldpayController(http.Controller):
             payment.sudo().write({'status': result_state})
 
         invoices = payment.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
-        all_invoice_ids = payment.invoice_ids.ids
+        invoice_names = ', '.join(payment.invoice_ids.mapped('name'))
         if result_state == 'done' and invoices:
             wizard_ctx = {
                 'active_model': 'account.move',
@@ -165,13 +166,14 @@ class NeatWorldpayController(http.Controller):
             register_wizard_vals = {}
             if payment.provider_id.journal_id:
                 register_wizard_vals['journal_id'] = payment.provider_id.journal_id.id
+            register_wizard_vals['group_payment'] = True
             register_wizard = request.env['account.payment.register'].sudo().with_context(**wizard_ctx).create(register_wizard_vals)
             register_wizard._create_payments()
 
             note_body = (
                 f"Payment was made for reference {reference}. "
                 f"Multiple invoices were paid together. "
-                f"Invoices in this virtual terminal payment: {all_invoice_ids}"
+                f"Invoices in this virtual terminal payment: {invoice_names}"
             )
             admin_user = request.env.ref('base.user_admin')
             for invoice in payment.invoice_ids:
