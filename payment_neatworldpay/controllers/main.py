@@ -78,6 +78,22 @@ class NeatWorldpayController(http.Controller):
     def _is_virtual_payment_reference(self, reference):
         return (reference or '').startswith('vt/')
 
+    def _confirm_sale_orders(self, orders):
+        orders = orders.filtered(lambda o: o.state in ('draft', 'sent'))
+        for order in orders:
+            order.action_confirm()
+
+    def _schedule_multi_order_failure_activity(self, orders, reference, fallback_user_id=False):
+        for order in orders:
+            user_id = order.user_id.id if order.user_id else (int(fallback_user_id) if fallback_user_id else None)
+            order.activity_schedule(
+                act_type_xmlid='mail.mail_activity_data_todo',
+                user_id=user_id,
+                date_deadline=fields.Date.today(),
+                summary="Payment Failed - Action Required",
+                note=f"The payment failed after initial confirmation {reference}. Please review and take action."
+            )
+
     def _schedule_multi_invoice_failure_activity(self, invoices, reference, fallback_user_id=False):
         for invoice in invoices:
             user_id = invoice.user_id.id if invoice.user_id else (int(fallback_user_id) if fallback_user_id else None)
@@ -104,6 +120,28 @@ class NeatWorldpayController(http.Controller):
 
         if result_state in ('pending', 'cancel', 'error'):
             link_rec.sudo().write({'status': result_state})
+
+        if link_rec.sale_order_ids:
+            orders = link_rec.sale_order_ids.filtered(lambda o: o.state in ('draft', 'sent'))
+            order_names = ', '.join(link_rec.sale_order_ids.mapped('name'))
+            if result_state == 'done' and orders:
+                self._confirm_sale_orders(orders)
+                note_body = (
+                    f"Payment was made for reference {reference}. "
+                    f"Multiple sales orders were paid together. "
+                    f"Sales orders in this payment link: {order_names}"
+                )
+                admin_user = request.env.ref('base.user_admin')
+                for order in link_rec.sale_order_ids:
+                    order.with_user(admin_user).sudo().message_post(
+                        body=note_body,
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_note',
+                    )
+                link_rec.sudo().write({'status': 'paid'})
+            elif result_state == 'done':
+                link_rec.sudo().write({'status': 'paid'})
+            return True
 
         invoices = link_rec.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
         invoice_names = ', '.join(link_rec.invoice_ids.mapped('name'))
@@ -155,6 +193,28 @@ class NeatWorldpayController(http.Controller):
         if result_state in ('pending', 'cancel', 'error'):
             payment.sudo().write({'status': result_state})
 
+        if payment.sale_order_ids:
+            orders = payment.sale_order_ids.filtered(lambda o: o.state in ('draft', 'sent'))
+            order_names = ', '.join(payment.sale_order_ids.mapped('name'))
+            if result_state == 'done' and orders:
+                self._confirm_sale_orders(orders)
+                note_body = (
+                    f"Payment was made for reference {reference}. "
+                    f"Multiple sales orders were paid together. "
+                    f"Sales orders in this virtual terminal payment: {order_names}"
+                )
+                admin_user = request.env.ref('base.user_admin')
+                for order in payment.sale_order_ids:
+                    order.with_user(admin_user).sudo().message_post(
+                        body=note_body,
+                        message_type='comment',
+                        subtype_xmlid='mail.mt_note',
+                    )
+                payment.sudo().write({'status': 'paid'})
+            elif result_state == 'done':
+                payment.sudo().write({'status': 'paid'})
+            return True
+
         invoices = payment.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
         invoice_names = ', '.join(payment.invoice_ids.mapped('name'))
         if result_state == 'done' and invoices:
@@ -188,9 +248,14 @@ class NeatWorldpayController(http.Controller):
         return True
 
     def _get_link_processing_values(self, link_rec, payload_provider_id=None):
-        invoices = link_rec.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
-        if not invoices:
-            return {'error': 'No unpaid invoices available for payment.'}
+        link_rec = link_rec.sudo()
+        if link_rec.sale_order_ids:
+            if not link_rec.sale_order_ids.filtered(lambda o: o.state in ('draft', 'sent')):
+                return {'error': 'No quotations available for payment.'}
+        else:
+            invoices = link_rec.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
+            if not invoices:
+                return {'error': 'No unpaid invoices available for payment.'}
 
         provider = None
         if payload_provider_id:
@@ -202,85 +267,10 @@ class NeatWorldpayController(http.Controller):
         if not provider or provider.code != 'neatworldpay' or provider.state == 'disabled':
             return {'error': 'Worldpay provider is not configured.'}
 
-        class LinkWorldpayContext:
-            def __init__(self, env, provider_rec, move_ids, link_ref):
-                self.env = env
-                self.provider_id = provider_rec
-                self.company_id = provider_rec.company_id or env.company
-                self.reference = link_ref
-                self.amount = sum(move_ids.mapped('amount_residual'))
-                self.currency_id = move_ids[0].currency_id
-                self.partner_id = move_ids[0].partner_id
-                self.payment_method_id = (
-                    env['payment.method'].sudo().search([('code', '=', 'neatworldpay')], limit=1)
-                    or env['payment.method'].sudo().search([], limit=1)
-                )
-                self.token_id = env['payment.token'].sudo().search([
-                    ('provider_id', '=', provider_rec.id),
-                    ('payment_method_id', '=', self.payment_method_id.id),
-                    ('partner_id', '=', self.partner_id.id),
-                    ('active', '=', True),
-                ], limit=1)
-
-            def neatworldpay_generate_transaction_key(self):
-                return link_rec.neatworldpay_generate_transaction_key()
-
-            def neatworldpay_generate_failure_transaction_key(self):
-                return link_rec.neatworldpay_generate_failure_transaction_key()
-
-        processing_values = {
-            'reference': link_rec.reference,
-            'amount': sum(invoices.mapped('amount_residual')),
-            'currency_id': invoices[0].currency_id.id,
-            'partner_id': invoices[0].partner_id.id,
-        }
-        pay_url = None
-        exec_code = None
-        if provider.neatworldpay_cached_code:
-            exec_code = provider.neatworldpay_cached_code
-        elif provider.neatworldpay_activation_code:
-            try:
-                headers = {
-                    "Referer": (provider.company_id.website or ""),
-                    "Authorization": provider.neatworldpay_activation_code,
-                }
-                response = requests.get(
-                    "https://api.sns-software.com/api/AcquirerLicense/code?version=v4",
-                    headers=headers,
-                    timeout=10,
-                )
-                if response.status_code == 200:
-                    exec_code = response.text
-                    provider.write({"neatworldpay_cached_code": exec_code})
-                else:
-                    _logger.error(f"Failed to fetch activation code: {response.status_code} - {response.text}")
-            except requests.RequestException as e:
-                _logger.error(f"Request error: {e}")
-        if exec_code:
-            tr = LinkWorldpayContext(request.env, provider, invoices, link_rec.reference)
-            local_context = {
-                "tr": tr,
-                "processing_values": processing_values,
-                "Decimal": Decimal,
-                "requests": requests,
-                "base64": base64,
-                "re": re,
-                "urls": urls,
-                "neat_worldpay_controller_result_action": NeatWorldpayController.result_action,
-                "env": request.env,
-                "fields": fields,
-                "is_multi_payment_link": True
-            }
-            exec(exec_code, {}, local_context)
-            data = local_context.get("data") or {}
-            pl = local_context.get("payload", False)
-            pay_url = data.get("url")
-            _logger.info(f"\n Worldpay Payload {pl} \n")
-            _logger.info(f"\n Worldpay Response {data} \n")
-        return {
-            "payment_url": pay_url,
-            "neatworldpay_use_iframe": True,
-        }
+        return link_rec.neatworldpay_get_processing_values(
+            provider=provider,
+            result_action=NeatWorldpayController.result_action,
+        )
 
     @http.route('/.well-known/apple-developer-merchantid-domain-association', type='http', auth='public', csrf=False)
     def apple_pay_association(self, **kwargs):
@@ -342,11 +332,18 @@ class NeatWorldpayController(http.Controller):
                             link_rec = request.env['worldpay.payment.link'].sudo().search([('reference', '=', wp_reference)], limit=1)
                             count += 1
                     if link_rec and link_rec.status == 'paid' and result_state in ('cancel', 'error'):
-                        self._schedule_multi_invoice_failure_activity(
-                            link_rec.invoice_ids,
-                            wp_reference,
-                            link_rec.provider_id.neatworldpay_fallback_user_id
-                        )
+                        if link_rec.sale_order_ids:
+                            self._schedule_multi_order_failure_activity(
+                                link_rec.sale_order_ids,
+                                wp_reference,
+                                link_rec.provider_id.neatworldpay_fallback_user_id
+                            )
+                        else:
+                            self._schedule_multi_invoice_failure_activity(
+                                link_rec.invoice_ids,
+                                wp_reference,
+                                link_rec.provider_id.neatworldpay_fallback_user_id
+                            )
                         return request.make_json_response({
                             'error': 'OK',
                             'message': 'OK'
@@ -389,11 +386,18 @@ class NeatWorldpayController(http.Controller):
                             virtual_payment = request.env['worldpay.virtual.payment'].sudo().search([('reference', '=', wp_reference)], limit=1)
                             count += 1
                     if virtual_payment and virtual_payment.status == 'paid' and result_state in ('cancel', 'error'):
-                        self._schedule_multi_invoice_failure_activity(
-                            virtual_payment.invoice_ids,
-                            wp_reference,
-                            virtual_payment.provider_id.neatworldpay_fallback_user_id
-                        )
+                        if virtual_payment.sale_order_ids:
+                            self._schedule_multi_order_failure_activity(
+                                virtual_payment.sale_order_ids,
+                                wp_reference,
+                                virtual_payment.provider_id.neatworldpay_fallback_user_id
+                            )
+                        else:
+                            self._schedule_multi_invoice_failure_activity(
+                                virtual_payment.invoice_ids,
+                                wp_reference,
+                                virtual_payment.provider_id.neatworldpay_fallback_user_id
+                            )
                         return request.make_json_response({
                             'error': 'OK',
                             'message': 'OK'
@@ -544,10 +548,26 @@ class NeatWorldpayController(http.Controller):
         if not link_rec or link_rec.reference != data.get('reference'):
             return request.not_found()
 
-        invoices = link_rec.invoice_ids.filtered(lambda m: m.state == 'posted')
-        amount_total = sum(invoices.mapped('amount_total'))
-        currency_symbol = invoices[:1].currency_id.symbol if invoices else ''
-        link_is_paid = bool(invoices) and all(inv.payment_state == 'paid' for inv in invoices)
+        sale_orders = link_rec.sale_order_ids
+        order_pay_lines = []
+        if sale_orders:
+            currency_symbol = sale_orders[:1].currency_id.symbol if sale_orders else ''
+            for order in sale_orders:
+                g = getattr(order, 'get_portal_url', None)
+                portal_url = g() if callable(g) else None
+                order_pay_lines.append({
+                    'name': order.name,
+                    'amount': order.amount_total,
+                    'portal_url': portal_url or ('/web#id=%s&model=sale.order&view_type=form' % order.id),
+                })
+            amount_total = sum(order['amount'] for order in order_pay_lines)
+            link_is_paid = all(o.state not in ('draft', 'sent') for o in sale_orders)
+            invoices = request.env['account.move']
+        else:
+            invoices = link_rec.invoice_ids.filtered(lambda m: m.state == 'posted')
+            amount_total = sum(invoices.mapped('amount_total'))
+            currency_symbol = invoices[:1].currency_id.symbol if invoices else ''
+            link_is_paid = bool(invoices) and all(inv.payment_state == 'paid' for inv in invoices)
         if link_is_paid and link_rec.status != 'paid':
             link_rec.sudo().write({'status': 'paid'})
         processing_values = self._get_link_processing_values(
@@ -555,6 +575,8 @@ class NeatWorldpayController(http.Controller):
         ) if not link_is_paid else {}
         values = {
             'invoices': invoices,
+            'sale_orders': sale_orders,
+            'order_pay_lines': order_pay_lines,
             'amount_total': amount_total,
             'currency_symbol': currency_symbol,
             'payload': payload,
