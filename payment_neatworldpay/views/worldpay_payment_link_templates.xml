@@ -41,20 +41,38 @@
 
                 <div class="card mt-3">
                     <div class="card-body">
-                        <h5 class="card-title mb-3">Invoices</h5>
-                        <ul class="list-unstyled mb-3">
-                            <t t-foreach="invoices" t-as="invoice">
-                                <li class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                    <a t-att-href="invoice.get_portal_url() or ('/web#id=%s&amp;model=account.move&amp;view_type=form' % invoice.id)" target="_blank" rel="noopener noreferrer">
-                                        <t t-esc="invoice.name or invoice.ref or ('INV-%s' % invoice.id)"/>
-                                    </a>
-                                    <span>
-                                        <t t-esc="invoice.currency_id.symbol or ''"/>
-                                        <t t-esc="'%.2f' % invoice.amount_total"/>
-                                    </span>
-                                </li>
-                            </t>
-                        </ul>
+                        <t t-if="sale_orders">
+                            <h5 class="card-title mb-3">Sales orders</h5>
+                            <ul class="list-unstyled mb-3">
+                                <t t-foreach="order_pay_lines" t-as="line">
+                                    <li class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                        <a t-att-href="line.get('portal_url')" target="_blank" rel="noopener noreferrer">
+                                            <t t-esc="line.get('name')"/>
+                                        </a>
+                                        <span>
+                                            <t t-esc="currency_symbol"/>
+                                            <t t-esc="'%.2f' % line.get('amount')"/>
+                                        </span>
+                                    </li>
+                                </t>
+                            </ul>
+                        </t>
+                        <t t-else="">
+                            <h5 class="card-title mb-3">Invoices</h5>
+                            <ul class="list-unstyled mb-3">
+                                <t t-foreach="invoices" t-as="invoice">
+                                    <li class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                        <a t-att-href="invoice.get_portal_url() or ('/web#id=%s&amp;model=account.move&amp;view_type=form' % invoice.id)" target="_blank" rel="noopener noreferrer">
+                                            <t t-esc="invoice.name or invoice.ref or ('INV-%s' % invoice.id)"/>
+                                        </a>
+                                        <span>
+                                            <t t-esc="invoice.currency_id.symbol or ''"/>
+                                            <t t-esc="'%.2f' % invoice.amount_total"/>
+                                        </span>
+                                    </li>
+                                </t>
+                            </ul>
+                        </t>
                         <div class="fw-bold">
                             Total:
                             <t t-esc="currency_symbol"/>
