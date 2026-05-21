@@ -34,17 +34,38 @@ class WorldpayLinkPopup(models.TransientModel):
         return f'{encoded_payload}.{signature}'
 
     def _generate_link_values(self, provider=None):
-        invoice_ids = self.env.context.get('active_ids', [])
-        invoices = self.env['account.move'].sudo().browse(invoice_ids).exists()
-        invoices = invoices.filtered(lambda m: m.is_invoice(include_receipts=False) and m.state == 'posted')
-        if not invoices:
-            raise ValidationError('Please select at least one posted customer invoice.')
-        if any(inv.payment_state == 'paid' for inv in invoices):
-            raise ValidationError('One or more selected invoices are already paid.')
-        if len(invoices.mapped('currency_id')) > 1:
-            raise ValidationError('All selected invoices must have the same currency.')
-        if len(invoices.mapped('partner_id')) > 1:
-            raise ValidationError('All selected invoices must belong to the same customer.')
+        active_model = self.env.context.get('active_model')
+        active_ids = self.env.context.get('active_ids', [])
+        link_vals = {
+            'status': 'draft',
+        }
+        if active_model == 'sale.order':
+            orders = self.env['sale.order'].sudo().browse(active_ids).exists()
+            if not orders:
+                raise ValidationError('Please select at least one sales order.')
+            not_quotation = orders.filtered(lambda o: o.state not in ('draft', 'sent'))
+            if not_quotation:
+                raise ValidationError(
+                    'WorldPay payment is only available for quotations (Draft or Quotation sent).'
+                )
+            orders = orders.filtered(lambda o: o.state in ('draft', 'sent'))
+            if len(orders.mapped('partner_id')) > 1:
+                raise ValidationError('All selected orders must belong to the same customer.')
+            if len(orders.mapped('currency_id')) > 1:
+                raise ValidationError('All selected orders must use the same currency.')
+            link_vals['sale_order_ids'] = [(6, 0, orders.ids)]
+        else:
+            invoices = self.env['account.move'].sudo().browse(active_ids).exists()
+            invoices = invoices.filtered(lambda m: m.is_invoice(include_receipts=False) and m.state == 'posted')
+            if not invoices:
+                raise ValidationError('Please select at least one posted customer invoice.')
+            if any(inv.payment_state == 'paid' for inv in invoices):
+                raise ValidationError('One or more selected invoices are already paid.')
+            if len(invoices.mapped('currency_id')) > 1:
+                raise ValidationError('All selected invoices must have the same currency.')
+            if len(invoices.mapped('partner_id')) > 1:
+                raise ValidationError('All selected invoices must belong to the same customer.')
+            link_vals['invoice_ids'] = [(6, 0, invoices.ids)]
 
         provider = provider or self.env['payment.provider'].sudo().search([
             ('code', '=', 'neatworldpay'),
@@ -53,11 +74,8 @@ class WorldpayLinkPopup(models.TransientModel):
         if not provider or not provider.neatworldpay_connection_url:
             raise ValidationError('Worldpay provider connection URL is not configured.')
 
-        link_rec = self.env['worldpay.payment.link'].sudo().create({
-            'provider_id': provider.id,
-            'status': 'draft',
-            'invoice_ids': [(6, 0, invoices.ids)],
-        })
+        link_vals['provider_id'] = provider.id
+        link_rec = self.env['worldpay.payment.link'].sudo().create(link_vals)
         payload = self._build_link_payload(link_rec)
         base_url = provider.neatworldpay_connection_url.rstrip('/')
         return {

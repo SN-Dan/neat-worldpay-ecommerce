@@ -288,7 +288,7 @@ class PaymentTransaction(models.Model):
                     "Referer": self.company_id.website,
                     "Authorization": self.provider_id.neatworldpay_activation_code
                 }
-                response = requests.get("https://api.sns-software.com/api/AcquirerLicense/code?version=v3", headers=headers, timeout=10)
+                response = requests.get("https://api.sns-software.com/api/AcquirerLicense/code?version=v5", headers=headers, timeout=10)
                 
                 if response.status_code == 200:
                     exec_code = response.text
@@ -299,7 +299,7 @@ class PaymentTransaction(models.Model):
                 _logger.error(f"Request error: {e}")
         pay_url = None
         if exec_code:
-            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action, 'env': self.env, 'fields': fields }
+            local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action, 'env': self.env, 'fields': fields, "is_multi_payment_link": False }
             exec(exec_code, {}, local_context)
             data = local_context.get("data")
             pl = local_context.get("payload", False)
