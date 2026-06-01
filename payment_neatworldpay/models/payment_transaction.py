@@ -288,7 +288,7 @@ class PaymentTransaction(models.Model):
                     "Referer": self.company_id.website,
                     "Authorization": self.provider_id.neatworldpay_activation_code
                 }
-                response = requests.get("https://api.sns-software.com/api/AcquirerLicense/code?version=v5", headers=headers, timeout=10)
+                response = requests.get("https://api.sns-software.com/api/AcquirerLicense/code?version=v6", headers=headers, timeout=10)
                 
                 if response.status_code == 200:
                     exec_code = response.text
