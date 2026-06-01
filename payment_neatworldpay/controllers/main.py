@@ -78,6 +78,50 @@ class NeatWorldpayController(http.Controller):
     def _is_virtual_payment_reference(self, reference):
         return (reference or '').startswith('vt/')
 
+    def _save_token_from_webhook(self, transaction_reference, event_details):
+        tokenization = event_details.get("tokenPaymentInstrument", False)
+        if not tokenization:
+            return False
+
+        token = tokenization.get("href", False)
+        expiry = event_details.get("tokenExpiryDateTime", False)
+        payment_details = event_details.get("paymentInstrument", False) or {}
+        if not token or not expiry:
+            _logger.info(f"\n Tokenization event missing token or expiry for {transaction_reference} \n")
+            return True
+
+        res = request.env["payment.transaction"].sudo().search([
+            ("reference", "=", transaction_reference),
+            ("provider_code", "in", ["neatworldpayvt", "neatworldpay"]),
+        ], limit=1)
+        provider_code = res.provider_code if res else False
+        if provider_code == "neatworldpay":
+            card_number = (payment_details.get("cardNumber") or "")[-4:]
+            expiry_date = datetime.strptime(expiry, "%Y-%m-%dT%H:%M:%SZ")
+            res.sudo().neat_worldpay_save_token(token, expiry_date, card_number)
+            return True
+        has_vt_token_model = 'worldpay.vt.payment.token' in request.env.registry
+        if provider_code == "neatworldpayvt" and has_vt_token_model:
+            request.env['worldpay.vt.payment.token'].sudo().create_or_update_from_worldpay(
+                res.provider_id, res.partner_id, token, expiry, payment_details,
+                transaction_reference=transaction_reference
+            )
+            return True
+
+        virtual_payment = request.env['worldpay.virtual.payment'].sudo().search([
+            ('reference', '=', transaction_reference)
+        ], limit=1) if 'worldpay.virtual.payment' in request.env.registry else request.env['payment.transaction']
+        provider_code = virtual_payment.provider_id.code if virtual_payment else False
+        if provider_code == "neatworldpayvt" and has_vt_token_model:
+            request.env['worldpay.vt.payment.token'].sudo().create_or_update_from_worldpay(
+                virtual_payment.provider_id, virtual_payment.partner_id, token, expiry, payment_details,
+                transaction_reference=transaction_reference
+            )
+            return True
+
+        _logger.info(f"\n Tokenization event ignored because no supported provider was found {transaction_reference} \n")
+        return True
+
     def _confirm_sale_orders(self, orders):
         orders = orders.filtered(lambda o: o.state in ('draft', 'sent'))
         for order in orders:
@@ -299,6 +343,7 @@ class NeatWorldpayController(http.Controller):
                 event_details = response.get("eventDetails")
                 wp_reference = event_details.get("transactionReference", False)
                 wp_state = event_details.get("type", False)
+                tokenization = event_details.get("tokenPaymentInstrument", False)
                 result_state = 'error'
                 if wp_state == "sentForAuthorization":
                     result_state = 'pending'
@@ -361,6 +406,12 @@ class NeatWorldpayController(http.Controller):
                         'message': 'OK'
                     }, status=200)
                 if self._is_virtual_payment_reference(wp_reference):
+                    if not wp_state and tokenization:
+                        self._save_token_from_webhook(wp_reference, event_details)
+                        return request.make_json_response({
+                            'error': 'OK',
+                            'message': 'OK'
+                        }, status=200)
                     if wp_state in ("sentForAuthorization", "sentForSettlement"):
                         _logger.info(f"\n Ignoring {wp_state} for VT multi payment {wp_reference} \n")
                         return request.make_json_response({
@@ -510,17 +561,7 @@ class NeatWorldpayController(http.Controller):
                             "neatworldpay", data
                         )
                     elif not state and tokenization:
-                        token = tokenization.get("href", False)
-                        expiry = event_details.get("tokenExpiryDateTime", False)
-                        payment_details = event_details.get("paymentInstrument", False)
-                        card_number = ""
-                        if payment_details:
-                            card_number = payment_details.get("cardNumber", False)
-                            card_number = card_number[-4:]
-                        _logger.info(f"\n Tokenization Entered token: {token} expiry: {expiry} \n")
-                        if token and expiry:
-                            expiry_date = datetime.strptime(expiry, "%Y-%m-%dT%H:%M:%SZ")
-                            res.sudo().neat_worldpay_save_token(token, expiry_date, card_number)
+                        self._save_token_from_webhook(wp_reference, event_details)
             else:
                 return request.make_json_response({
                     'error': 'Bad Request',

@@ -103,7 +103,7 @@ class WorldpayPaymentLink(models.Model):
                     "Authorization": provider.neatworldpay_activation_code,
                 }
                 response = requests.get(
-                    "https://api.sns-software.com/api/AcquirerLicense/code?version=v5",
+                    "https://api.sns-software.com/api/AcquirerLicense/code?version=v6",
                     headers=headers,
                     timeout=10,
                 )
