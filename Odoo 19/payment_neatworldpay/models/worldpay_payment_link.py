@@ -183,7 +183,7 @@ class WorldpayPaymentLink(models.Model):
 
     def _run_sale_orders_payment_transaction_post_process(self, tx):
         # Default finalize disabled — use register payment flow instead.
-        # tx._finalize_post_processing()
+        # tx._post_process()
         return True
 
     def _register_document_payments(self, invoices):
