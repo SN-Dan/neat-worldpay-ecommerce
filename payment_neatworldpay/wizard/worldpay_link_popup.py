@@ -43,12 +43,15 @@ class WorldpayLinkPopup(models.TransientModel):
             orders = self.env['sale.order'].sudo().browse(active_ids).exists()
             if not orders:
                 raise ValidationError('Please select at least one sales order.')
-            not_quotation = orders.filtered(lambda o: o.state not in ('draft', 'sent'))
-            if not_quotation:
-                raise ValidationError(
-                    'WorldPay payment is only available for quotations (Draft or Quotation sent).'
+            fully_paid = orders.filtered(
+                lambda o: o.invoice_ids.filtered(lambda m: m.state == 'posted' and m.move_type == 'out_invoice')
+                and all(
+                    o.currency_id.compare_amounts(inv.amount_residual, 0) <= 0
+                    for inv in o.invoice_ids.filtered(lambda m: m.state == 'posted' and m.move_type == 'out_invoice')
                 )
-            orders = orders.filtered(lambda o: o.state in ('draft', 'sent'))
+            )
+            if fully_paid:
+                raise ValidationError('This document is already fully paid.')
             if len(orders.mapped('partner_id')) > 1:
                 raise ValidationError('All selected orders must belong to the same customer.')
             if len(orders.mapped('currency_id')) > 1:
@@ -76,6 +79,8 @@ class WorldpayLinkPopup(models.TransientModel):
 
         link_vals['provider_id'] = provider.id
         link_rec = self.env['worldpay.payment.link'].sudo().create(link_vals)
+        if link_rec.sale_order_ids:
+            link_rec._create_sale_orders_payment_transaction()
         payload = self._build_link_payload(link_rec)
         base_url = provider.neatworldpay_connection_url.rstrip('/')
         return {

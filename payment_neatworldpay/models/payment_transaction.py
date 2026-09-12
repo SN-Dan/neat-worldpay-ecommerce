@@ -179,7 +179,7 @@ class PaymentTransaction(models.Model):
             return refund_tx
 
         notification_data = {'reference': refund_tx.reference, 'result_state': 'done'}
-        refund_tx._handle_notification_data('neatworldpay', notification_data)
+        refund_tx._process('neatworldpay', notification_data)
 
         return refund_tx
 
@@ -194,7 +194,7 @@ class PaymentTransaction(models.Model):
             'reference': tx.reference,
             'result_state': 'done',
         }
-        tx._handle_notification_data('neatworldpay', notification_data)
+        tx._process('neatworldpay', notification_data)
 
         return child_capture_tx
 
@@ -206,7 +206,7 @@ class PaymentTransaction(models.Model):
 
         tx = child_void_tx or self
         notification_data = {'reference': tx.reference, 'result_state': 'cancel'}
-        tx._handle_notification_data('neatworldpay', notification_data)
+        tx._process('neatworldpay', notification_data)
 
         return child_void_tx
     @api.model
