@@ -149,3 +149,121 @@ class WorldpayPaymentLink(models.Model):
             "billing_address": billing_address,
             "neatworldpay_use_iframe": provider.neatworldpay_use_iframe,
         }
+
+    def _get_sale_orders_payment_transaction(self):
+        self.ensure_one()
+        return self.env['payment.transaction'].sudo().search([
+            ('reference', '=', self.reference),
+        ], limit=1)
+
+    def _create_sale_orders_payment_transaction(self):
+        """Create payment.transaction for SO payment-link using the joint reference."""
+        self.ensure_one()
+        if not self.sale_order_ids:
+            return self.env['payment.transaction']
+        existing = self._get_sale_orders_payment_transaction()
+        if existing:
+            return existing
+
+        vals = {
+            'provider_id': self.provider_id.id,
+            'reference': self.reference,
+            'amount': self.amount,
+            'currency_id': self.currency_id.id,
+            'partner_id': self.partner_id.id,
+            'operation': 'online_direct',
+            'sale_order_ids': [(6, 0, self.sale_order_ids.ids)],
+        }
+        payment_method = self.env['payment.method'].sudo().search([
+            ('code', '=', self.provider_id.code),
+        ], limit=1)
+        if payment_method:
+            vals['payment_method_id'] = payment_method.id
+        return self.env['payment.transaction'].sudo().create(vals)
+
+    def _run_sale_orders_payment_transaction_post_process(self, tx):
+        # Default finalize disabled — use register payment flow instead.
+        # tx._finalize_post_processing()
+        return True
+
+    def _register_document_payments(self, invoices):
+        """Create payments via account.payment.register (same path for invoices / multi-SO)."""
+        if not invoices:
+            return self.env['account.payment']
+        wizard_ctx = {
+            'active_model': 'account.move',
+            'active_ids': invoices.ids,
+            'active_id': invoices.ids[0],
+        }
+        register_vals = {}
+        if self.provider_id.journal_id:
+            register_vals['journal_id'] = self.provider_id.journal_id.id
+        if getattr(self, 'is_partial', False):
+            register_vals['amount'] = self.amount
+            register_vals['group_payment'] = False
+        else:
+            register_vals['group_payment'] = True
+        wizard = self.env['account.payment.register'].sudo().with_context(**wizard_ctx).create(register_vals)
+        return wizard._create_payments()
+
+    def _complete_invoices_payment(self):
+        invoices = self.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
+        if invoices:
+            self._register_document_payments(invoices)
+        return True
+
+    def _complete_multi_sale_orders_like_invoices(self, tx):
+        """Confirm/invoice SOs if needed, then register onto unpaid invoices (same as invoice flow)."""
+        for order in self.sale_order_ids.filtered(lambda o: o.state in ('draft', 'sent')):
+            order.with_context(send_email=True).action_confirm()
+
+        orders = self.sale_order_ids.filtered(lambda o: o.state == 'sale')
+        if not orders:
+            tx.is_post_processed = True
+            return True
+
+        # Further partials: pay residual on existing invoices (do not rely on _create_invoices).
+        unpaid = orders.mapped('invoice_ids').filtered(
+            lambda m: m.state == 'posted' and m.move_type == 'out_invoice' and m.payment_state != 'paid'
+        )
+        if not unpaid:
+            orders._force_lines_to_invoice_policy_order()
+            invoices = orders.with_context(raise_if_nothing_to_invoice=False)._create_invoices(final=True)
+            draft_invoices = invoices.filtered(lambda m: m.state == 'draft')
+            if draft_invoices:
+                draft_invoices.action_post()
+            unpaid = invoices.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
+
+        if unpaid:
+            payments = self._register_document_payments(unpaid)
+            if payments and not tx.payment_id:
+                tx.payment_id = payments[:1].id
+            tx.invoice_ids = [(6, 0, unpaid.ids)]
+
+        tx.is_post_processed = True
+        return True
+
+    def _complete_sale_orders_payment_transaction(self):
+        self.ensure_one()
+        if self.sale_order_ids:
+            tx = self._get_sale_orders_payment_transaction()
+            if not tx:
+                return False
+            if tx.state != 'done':
+                tx._set_done()
+            if tx.is_post_processed:
+                return True
+            # Finalize disabled — always use register payment flow.
+            # self._run_sale_orders_payment_transaction_post_process(tx)
+            return self._complete_multi_sale_orders_like_invoices(tx)
+        if self.invoice_ids:
+            return self._complete_invoices_payment()
+        return False
+
+    def _cancel_sale_orders_payment_transaction(self):
+        self.ensure_one()
+        tx = self._get_sale_orders_payment_transaction()
+        if not tx or tx.state in ('done', 'cancel'):
+            return False
+        tx._set_canceled()
+        return True
