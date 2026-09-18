@@ -7,25 +7,15 @@
         <field name="arch" type="xml">
             <group name="provider_credentials" position='inside'>
                 <group invisible="code != 'neatworldpay'">
-                    <script type="text/javascript" src="/payment_neatworldpay/static/src/interactions/neatworldpay.js"/>
-                    <link rel="stylesheet" href="/payment_neatworldpay/static/src/css/neatworldpay.css"/>
-                    <div class="alert alert-success" role="alert" colspan="2" invisible="neatworldpay_activation_code">
+<div class="alert alert-success" role="alert" colspan="2" invisible="neatworldpay_activation_code">
                         Don't have an Activation Code yet?<br />
                           
-                        <a href="#" name="activation-code-button" onclick="showActivationForm(event)">
+                        
+                    <a href="https://api.sns-software.com/license-request?provider=worldpay" target="_blank" rel="noopener noreferrer">
                         Get a free activation code
-                        </a>
-                        <!-- Hidden Form -->
-                        <div id="neatworldpay_form" class="neatworldpay-popup">
-                            <h3>Request an Activation Code</h3>
-                            <div id="neatworldpay_request_form">
-
-                            </div>
-                            <a href="#" class="neatworldpay_submit" name="neatworldpay_submit">Submit</a>
-                            <a href="#" class="neatworldpay_close_form" name="neatworldpay_close_form">Cancel</a>
-                        </div>
-                    </div>
-                    <field
+                    </a>
+                </div>
+                <field
                         name="neatworldpay_reset_code"
                         string="Update Module Cache"
                         required="code == 'neatworldpay' and state != 'disabled'"
@@ -69,13 +59,12 @@
                     />
                     <div class="alert alert-success" role="alert" colspan="2">
                         <b>By using this module you agree to our </b>
-                        <a
-                            href="https://www.sns-software.com/privacy"
-                            target="_blank">
+                        
+                    <a href="https://api.sns-software.com/terms?provider=worldpay" target="_blank" rel="noopener noreferrer">
                         terms and conditions
-                        </a>
-                    </div>
-                   <div class="oe_structure" colspan="2">
+                    </a>
+                </div>
+                    <div class="oe_structure" colspan="2">
                         <p>
                             Please make sure to set the following webhook in the Worldpay Dashboard:
                         </p>
