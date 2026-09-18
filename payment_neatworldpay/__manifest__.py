@@ -37,10 +37,6 @@
         'web.assets_frontend': [
             'payment_neatworldpay/static/src/js/payment_form.js'
         ],
-        'web.assets_backend': [
-            'payment_neatworldpay/static/src/css/neatworldpay.css',
-            'payment_neatworldpay/static/src/js/neatworldpay.js',
-        ]
     },
     'license': 'LGPL-3',
 }
