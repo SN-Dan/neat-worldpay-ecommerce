@@ -32,10 +32,6 @@
             'payment_neatworldpay/static/src/js/payment_form.js',
             'https://payments.worldpay.com/resources/hpp/integrations/embedded/js/hpp-embedded-integration-library.js'
         ],
-        'web.assets_backend': [
-            'payment_neatworldpay/static/src/css/neatworldpay.css',
-            'payment_neatworldpay/static/src/js/neatworldpay.js',
-        ],
     },
     'license': 'LGPL-3',
 }
