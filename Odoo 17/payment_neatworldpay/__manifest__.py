@@ -17,10 +17,16 @@
     'author': 'SNS Software',
     'maintainer': 'SNS Software',
     'website': 'https://www.sns-software.com',
-    'depends': ['payment'],
+    'depends': ['payment', 'account', 'sale'],
     'images': ['static/description/main.gif'],
     'data': [
+        'security/ir.model.access.csv',
         'views/payment_provider_views.xml',
+        'views/account_move_views.xml',
+        'views/sale_order_views.xml',
+        'views/worldpay_payment_link_templates.xml',
+        'wizard/worldpay_link_popup_views.xml',
+        'views/payment_neatworldpay_templates.xml',
         'views/payment_form_templates.xml',
 
         'data/payment_provider_data.xml'
@@ -29,8 +35,7 @@
     'uninstall_hook': 'uninstall_hook',
     'assets': {
         'web.assets_frontend': [
-            'payment_neatworldpay/static/src/js/payment_form.js',
-            'https://payments.worldpay.com/resources/hpp/integrations/embedded/js/hpp-embedded-integration-library.js'
+            'payment_neatworldpay/static/src/js/payment_form.js'
         ],
     },
     'license': 'LGPL-3',
