@@ -1,6 +1,6 @@
 {
     'name': 'Payment Provider: Worldpay',
-    'version': '2.0',
+    'version': '2.1',
     'category': 'Accounting/Payment Providers',
     'sequence': 350,
     'summary': "Worldpay E-Commerce/Online Payments Official Integration.",
@@ -29,6 +29,7 @@
         'views/payment_neatworldpay_templates.xml',
         'views/payment_form_templates.xml',
         'data/payment_provider_data.xml',
+        'data/ir_cron_data.xml',
     ],
     'post_init_hook': 'post_init_hook',
     'uninstall_hook': 'uninstall_hook',

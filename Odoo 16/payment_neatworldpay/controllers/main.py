@@ -8,6 +8,7 @@ import binascii
 import hashlib
 import hmac
 import logging
+import requests
 import pprint
 import time
 from odoo.http import request
@@ -42,6 +43,19 @@ class NeatWorldpayController(http.Controller):
             [('Content-Type', 'text/plain')]
         )
         
+
+    def _neatworldpay_map_webhook_result_state(self, wp_state, provider=None, event_details=None):
+        """Map Worldpay webhook event type to Odoo result state."""
+        result_state = 'error'
+        if wp_state == "sentForAuthorization":
+            result_state = 'pending'
+        elif wp_state == "authorized":
+            result_state = "done"
+        elif wp_state == "cancelled":
+            result_state = 'cancel'
+        return result_state
+
+
     @http.route(
         "/neatworldpay/wh", type="http", auth="public", csrf=False, methods=["POST", "GET"]
     )
@@ -79,6 +93,18 @@ class NeatWorldpayController(http.Controller):
                             while count < 30:
                                 if not res or res.state == "done":
                                     _logger.info(f"\n Transaction was finished while waiting for pending status {res.reference} \n")
+                                    if res and res.state == "done":
+                                        try:
+                                            if res.provider_code == 'neatworldpayvt' and 'neatworldpayvt.finalise.payment' in request.env:
+                                                request.env['neatworldpayvt.finalise.payment'].sudo().mark_pending(
+                                                    res.reference, res.provider_id, res.amount, res.currency_id, 'virtual terminal',
+                                                )
+                                            elif res.provider_code == 'neatworldpay':
+                                                request.env['neatworldpay.finalise.payment'].sudo().mark_pending(
+                                                    res.reference, res.provider_id, res.amount, res.currency_id, 'ecommerce',
+                                                )
+                                        except Exception:
+                                            _logger.exception('NeatWorldpay requeue finalise failed ref=%s', res.reference)
                                     return request.make_json_response({
                                         'error': 'OK',
                                         'message': 'OK'
@@ -102,14 +128,7 @@ class NeatWorldpayController(http.Controller):
 
                                 count+=1
 
-                        if state == "sentForAuthorization":
-                            state = 'pending'
-                        elif state == "authorized":
-                            state = "done"
-                        elif state == "cancelled":
-                            state = 'cancel'
-                        else:
-                            state = 'error'
+                        state = self._neatworldpay_map_webhook_result_state(state, provider=res.provider_id, event_details=event_details)
                         if res.state == "done" and (state == 'cancel' or state == 'error'):
                             sale_order_ref = res.reference.split("-")[0]
                             _logger.info(f"\n Transaction Cancelled after done {sale_order_ref} \n")

@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_worldpay_link_popup_user,access.worldpay.link.popup.user,model_worldpay_link_popup,base.group_user,1,1,1,1
 access_worldpay_payment_link_user,access.worldpay.payment.link.user,model_worldpay_payment_link,base.group_user,1,1,1,1
+access_neatworldpay_finalise_payment_user,access.neatworldpay.finalise.payment.user,payment_neatworldpay.model_neatworldpay_finalise_payment,base.group_user,1,1,1,1

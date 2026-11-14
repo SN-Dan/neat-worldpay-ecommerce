@@ -35,109 +35,101 @@ class PaymentTransaction(models.Model):
     )
 
     def neatworldpay_generate_transaction_key(self):
-        """
-        Generate a random GUID as success transaction key, hash it, and store the hash in the transaction record.
-        
-        :return: str: The generated success transaction key (GUID) if successful, None otherwise
-        """
+        """Mint sealed 24h success result token (license puts it in successURL path)."""
         try:
-            # Generate a random GUID as success transaction key
-            transaction_key = str(uuid.uuid4())
-            
-            # Generate hash using Odoo's password context
-            hashed_key = self._pwd_context.hash(transaction_key)
-            
-            # Store the hash (salt is included in the hash string)
+            Token = self.env['neatworldpay.url.token'].sudo()
+            from odoo.addons.payment_neatworldpay.models.neatworldpay_url_token import SEALED_MARKER
+            transaction_key = Token.seal('wp_success', self.reference, self.amount, self.currency_id)
             self.write({
-                'neatworldpay_validation_hash': hashed_key
+                'neatworldpay_validation_hash': SEALED_MARKER,
+                'neatworldpay_validation_attempts': 0,
             })
-            
-            _logger.info(f"Success transaction key generated and hashed for transaction {self.reference}")
+            _logger.info(f"Success sealed result token generated for transaction {self.reference}")
             return transaction_key
-            
         except Exception as e:
-            _logger.error(f"Error generating and hashing success transaction key for transaction {self.reference}: {e}")
+            _logger.error(f"Error generating success result token for transaction {self.reference}: {e}")
             return None
 
     def neatworldpay_generate_failure_transaction_key(self):
-        """
-        Generate a random GUID as failure transaction key, hash it, and store the hash in the transaction record.
-        
-        :return: str: The generated failure transaction key (GUID) if successful, None otherwise
-        """
+        """Mint sealed 24h failure result token (license puts it in failureURL path)."""
         try:
-            # Generate a random GUID as failure transaction key
-            failure_transaction_key = str(uuid.uuid4())
-            
-            # Generate hash using Odoo's password context
-            hashed_key = self._pwd_context.hash(failure_transaction_key)
-            
-            # Store the hash (salt is included in the hash string)
-            self.write({
-                'neatworldpay_failure_validation_hash': hashed_key
-            })
-            
-            _logger.info(f"Failure transaction key generated and hashed for transaction {self.reference}")
+            Token = self.env['neatworldpay.url.token'].sudo()
+            from odoo.addons.payment_neatworldpay.models.neatworldpay_url_token import SEALED_MARKER
+            failure_transaction_key = Token.seal(
+                'wp_failure', self.reference, self.amount, self.currency_id
+            )
+            self.write({'neatworldpay_failure_validation_hash': SEALED_MARKER})
+            _logger.info(f"Failure sealed result token generated for transaction {self.reference}")
             return failure_transaction_key
-            
         except Exception as e:
-            _logger.error(f"Error generating and hashing failure transaction key for transaction {self.reference}: {e}")
+            _logger.error(f"Error generating failure result token for transaction {self.reference}: {e}")
             return None
 
-    def neatworldpay_validate_transaction_key(self, transaction_key):
-        """
-        Validate a success transaction key against the stored hash with retry mechanism.
-        Maximum of 3 failed attempts allowed.
-        
-        :param str transaction_key: The success transaction key to validate
-        :return: bool: True if transaction key matches, False otherwise
-        """
+    def _neatworldpay_validate_sealed_or_hash(self, key, purpose, hash_field, bump_attempts=False):
+        """Prefer sealed token; fall back to legacy passlib hash for in-flight sessions."""
+        from odoo.addons.payment_neatworldpay.models.neatworldpay_url_token import SEALED_MARKER
+        Token = self.env['neatworldpay.url.token'].sudo()
+        stored = self[hash_field]
         try:
-            # Check if maximum failed attempts reached
+            claims = Token.open(key, expected_purpose=purpose)
+            if claims.get('reference') != self.reference:
+                if bump_attempts:
+                    self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+                return False
+            if not Token.record_amount_matches(claims, self.amount, self.currency_id):
+                if bump_attempts:
+                    self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+                return False
+            return True
+        except ValidationError:
+            pass
+        if not stored or stored == SEALED_MARKER:
+            return False
+        try:
+            is_valid = self._pwd_context.verify(key, stored)
+        except Exception:
+            return False
+        if not is_valid and bump_attempts:
+            self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+        return is_valid
+
+    def neatworldpay_validate_transaction_key(self, transaction_key):
+        """Validate sealed success token (or legacy hash). Max 3 failed attempts."""
+        try:
             if self.neatworldpay_validation_attempts >= 3:
                 _logger.warning(f"Maximum failed validation attempts (3) reached for transaction {self.reference}")
                 return False
-            
             if not self.neatworldpay_validation_hash:
                 _logger.warning(f"No success validation hash found for transaction {self.reference}")
                 return False
-            
-            # Verify transaction key using Odoo's password context
-            is_valid = self._pwd_context.verify(transaction_key, self.neatworldpay_validation_hash)
-            
+            is_valid = self._neatworldpay_validate_sealed_or_hash(
+                transaction_key, 'wp_success', 'neatworldpay_validation_hash', bump_attempts=True
+            )
             if is_valid:
-                _logger.info(f"Success transaction key validated successfully for transaction {self.reference}")
+                _logger.info(f"Success transaction key validated for transaction {self.reference}")
             else:
-                # Increment failed attempt counter only when validation fails
-                self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
-                _logger.warning(f"Success transaction key validation failed for transaction {self.reference} (failed attempt {self.neatworldpay_validation_attempts})")
-            
+                _logger.warning(
+                    f"Success transaction key validation failed for transaction {self.reference} "
+                    f"(failed attempt {self.neatworldpay_validation_attempts})"
+                )
             return is_valid
-            
         except Exception as e:
             _logger.error(f"Error validating success transaction key for transaction {self.reference}: {e}")
             return False
 
     def neatworldpay_validate_failure_transaction_key(self, failure_transaction_key):
-        """
-        Validate a failure transaction key against the stored hash.
-        
-        :param str failure_transaction_key: The failure transaction key to validate
-        :return: bool: True if failure transaction key matches, False otherwise
-        """
+        """Validate sealed failure token (or legacy hash)."""
         try:
             if not self.neatworldpay_failure_validation_hash:
                 _logger.warning(f"No failure validation hash found for transaction {self.reference}")
                 return False
-            
-            # Verify failure transaction key using Odoo's password context
-            is_valid = self._pwd_context.verify(failure_transaction_key, self.neatworldpay_failure_validation_hash)
-            
+            is_valid = self._neatworldpay_validate_sealed_or_hash(
+                failure_transaction_key, 'wp_failure', 'neatworldpay_failure_validation_hash'
+            )
             if is_valid:
-                _logger.info(f"Failure transaction key validated successfully for transaction {self.reference}")
+                _logger.info(f"Failure transaction key validated for transaction {self.reference}")
             else:
                 _logger.warning(f"Failure transaction key validation failed for transaction {self.reference}")
-            
             return is_valid
             
         except Exception as e:
@@ -279,24 +271,7 @@ class PaymentTransaction(models.Model):
             return super()._get_specific_processing_values(processing_values)
 
 
-        exec_code = None
-        if self.provider_id.neatworldpay_cached_code:
-            exec_code = self.provider_id.neatworldpay_cached_code
-        elif self.provider_id.neatworldpay_activation_code:
-            try:
-                headers = {
-                    "Referer": self.company_id.website,
-                    "Authorization": self.provider_id.neatworldpay_activation_code
-                }
-                response = requests.get("https://api.sns-software.com/api/AcquirerLicense/code?version=v6", headers=headers, timeout=10)
-                
-                if response.status_code == 200:
-                    exec_code = response.text
-                    self.provider_id.write({"neatworldpay_cached_code": exec_code})
-                else:
-                    _logger.error(f"Failed to fetch activation code: {response.status_code} - {response.text}")
-            except requests.RequestException as e:
-                _logger.error(f"Request error: {e}")
+        exec_code = self.provider_id.neatworldpay_get_exec_code()
         pay_url = None
         if exec_code:
             local_context = {"tr": self, "processing_values": processing_values, "Decimal": Decimal, "requests": requests, "base64": base64, "re": re, "urls": urls, "neat_worldpay_controller_result_action": NeatWorldpayController.result_action, 'env': self.env, 'fields': fields, "is_multi_payment_link": False }
@@ -307,6 +282,18 @@ class PaymentTransaction(models.Model):
             _logger.info(f"\n Worldpay Payload {pl} \n")
             _logger.info(f"\n Worldpay Response {data} \n")
             
+
+        if pay_url:
+            try:
+                self.env['neatworldpay.finalise.payment'].sudo().ensure_draft(
+                    self.reference,
+                    self.provider_id,
+                    self.amount,
+                    self.currency_id,
+                    self._neatworldpay_device_type_for_finalise(),
+                )
+            except Exception:
+                pass
         return { "payment_url": pay_url, "neatworldpay_use_iframe": self.provider_id.neatworldpay_use_iframe }
     
     def neat_worldpay_save_token(self, token, expiry_date, card_number):
@@ -339,3 +326,45 @@ class PaymentTransaction(models.Model):
             'tokenize': False,
         })
 
+    def _neatworldpay_device_type_for_finalise(self):
+        self.ensure_one()
+        device_type = 'ecommerce'
+        try:
+            if 'worldpay.virtual.payment' in self.env and self.env['worldpay.virtual.payment'].sudo().search(
+                [('reference', '=', self.reference)], limit=1
+            ):
+                device_type = 'virtual terminal'
+        except Exception:
+            pass
+        return device_type
+
+    def write(self, vals):
+        # Stash previous states for constrains; no business logic here.
+        if 'state' in vals:
+            prev = dict(self.env.context.get('neat_payment_prev_states') or {})
+            for tx in self:
+                prev.setdefault(tx.id, tx.state)
+            self = self.with_context(neat_payment_prev_states=prev)
+        return super().write(vals)
+
+    @api.constrains('state')
+    def _neatworldpay_on_state_done(self):
+        """Queue finalise when state changes to done (previous state must not be done)."""
+        prev_states = self.env.context.get('neat_payment_prev_states') or {}
+        Finalise = self.env['neatworldpay.finalise.payment'].sudo()
+        for tx in self.filtered(
+            lambda t: t.provider_code == 'neatworldpay'
+            and t.state == 'done'
+            and t.id in prev_states
+            and prev_states.get(t.id) != 'done'
+        ):
+            try:
+                Finalise.mark_pending(
+                    tx.reference,
+                    tx.provider_id,
+                    tx.amount,
+                    tx.currency_id,
+                    tx._neatworldpay_device_type_for_finalise(),
+                )
+            except Exception:
+                pass

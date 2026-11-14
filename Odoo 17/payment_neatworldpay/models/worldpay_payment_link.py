@@ -9,6 +9,7 @@ from decimal import Decimal
 from werkzeug import urls
 
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 from passlib.context import CryptContext
 
 _logger = logging.getLogger(__name__)
@@ -65,56 +66,72 @@ class WorldpayPaymentLink(models.Model):
 
     def neatworldpay_generate_transaction_key(self):
         self.ensure_one()
-        transaction_key = str(uuid.uuid4())
-        self.write({'neatworldpay_validation_hash': self._pwd_context.hash(transaction_key)})
+        Token = self.env['neatworldpay.url.token'].sudo()
+        from odoo.addons.payment_neatworldpay.models.neatworldpay_url_token import SEALED_MARKER
+        transaction_key = Token.seal('wp_success', self.reference, self.amount, self.currency_id)
+        self.write({
+            'neatworldpay_validation_hash': SEALED_MARKER,
+            'neatworldpay_validation_attempts': 0,
+        })
         return transaction_key
 
     def neatworldpay_generate_failure_transaction_key(self):
         self.ensure_one()
-        failure_transaction_key = str(uuid.uuid4())
-        self.write({'neatworldpay_failure_validation_hash': self._pwd_context.hash(failure_transaction_key)})
+        Token = self.env['neatworldpay.url.token'].sudo()
+        from odoo.addons.payment_neatworldpay.models.neatworldpay_url_token import SEALED_MARKER
+        failure_transaction_key = Token.seal(
+            'wp_failure', self.reference, self.amount, self.currency_id
+        )
+        self.write({'neatworldpay_failure_validation_hash': SEALED_MARKER})
         return failure_transaction_key
+
+    def _neatworldpay_validate_sealed_or_hash(self, key, purpose, hash_field, bump_attempts=False):
+        from odoo.addons.payment_neatworldpay.models.neatworldpay_url_token import SEALED_MARKER
+        Token = self.env['neatworldpay.url.token'].sudo()
+        stored = self[hash_field]
+        try:
+            claims = Token.open(key, expected_purpose=purpose)
+            if claims.get('reference') != self.reference:
+                if bump_attempts:
+                    self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+                return False
+            if not Token.record_amount_matches(claims, self.amount, self.currency_id):
+                if bump_attempts:
+                    self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+                return False
+            return True
+        except ValidationError:
+            pass
+        if not stored or stored == SEALED_MARKER:
+            return False
+        try:
+            is_valid = self._pwd_context.verify(key, stored)
+        except Exception:
+            return False
+        if not is_valid and bump_attempts:
+            self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
+        return is_valid
 
     def neatworldpay_validate_transaction_key(self, transaction_key):
         self.ensure_one()
         if self.neatworldpay_validation_attempts >= 3 or not self.neatworldpay_validation_hash:
             return False
-        is_valid = self._pwd_context.verify(transaction_key, self.neatworldpay_validation_hash)
-        if not is_valid:
-            self.write({'neatworldpay_validation_attempts': self.neatworldpay_validation_attempts + 1})
-        return is_valid
+        return self._neatworldpay_validate_sealed_or_hash(
+            transaction_key, 'wp_success', 'neatworldpay_validation_hash', bump_attempts=True
+        )
 
     def neatworldpay_validate_failure_transaction_key(self, failure_transaction_key):
         self.ensure_one()
         if not self.neatworldpay_failure_validation_hash:
             return False
-        return self._pwd_context.verify(failure_transaction_key, self.neatworldpay_failure_validation_hash)
+        return self._neatworldpay_validate_sealed_or_hash(
+            failure_transaction_key, 'wp_failure', 'neatworldpay_failure_validation_hash'
+        )
 
     def neatworldpay_get_processing_values(self, provider=None, result_action=None):
         self.ensure_one()
         provider = provider or self.provider_id
-        exec_code = None
-        if provider.neatworldpay_cached_code:
-            exec_code = provider.neatworldpay_cached_code
-        elif provider.neatworldpay_activation_code:
-            try:
-                headers = {
-                    "Referer": (provider.company_id.website or ""),
-                    "Authorization": provider.neatworldpay_activation_code,
-                }
-                response = requests.get(
-                    "https://api.sns-software.com/api/AcquirerLicense/code?version=v6",
-                    headers=headers,
-                    timeout=10,
-                )
-                if response.status_code == 200:
-                    exec_code = response.text
-                    provider.write({"neatworldpay_cached_code": exec_code})
-                else:
-                    _logger.error(f"Failed to fetch activation code: {response.status_code} - {response.text}")
-            except requests.RequestException as e:
-                _logger.error(f"Request error: {e}")
-
+        exec_code = provider.neatworldpay_get_exec_code()
         pay_url = None
         billing_address = None
         if exec_code:
@@ -144,6 +161,18 @@ class WorldpayPaymentLink(models.Model):
             _logger.info(f"\n Worldpay Payload {pl} \n")
             _logger.info(f"\n Worldpay Response {data} \n")
 
+
+        if pay_url:
+            try:
+                self.env['neatworldpay.finalise.payment'].sudo().ensure_draft(
+                    self.reference,
+                    provider,
+                    self.amount,
+                    self.currency_id,
+                    'ecommerce',
+                )
+            except Exception:
+                pass
         return {
             "payment_url": pay_url,
             "billing_address": billing_address,
@@ -207,9 +236,24 @@ class WorldpayPaymentLink(models.Model):
         return wizard._create_payments()
 
     def _complete_invoices_payment(self):
+        # Capture before register payment zeros residuals / recomputed amount.
+        amount = self.amount
+        currency = self.currency_id
         invoices = self.invoice_ids.filtered(lambda m: m.state == 'posted' and m.payment_state != 'paid')
         if invoices:
             self._register_document_payments(invoices)
+        # Invoice-only docs never _set_done on a payment.transaction — queue finalise here.
+        # Same value as license orderId: tr.reference (payment link reference).
+        try:
+            self.env['neatworldpay.finalise.payment'].sudo().mark_pending(
+                self.reference,
+                self.provider_id,
+                amount,
+                currency,
+                'ecommerce',
+            )
+        except Exception:
+            pass
         return True
 
     def _complete_multi_sale_orders_like_invoices(self, tx):
