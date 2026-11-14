@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_neatworldpay_finalise_payment_user,access.neatworldpay.finalise.payment.user,payment_neatworldpay.model_neatworldpay_finalise_payment,base.group_user,1,1,1,1
