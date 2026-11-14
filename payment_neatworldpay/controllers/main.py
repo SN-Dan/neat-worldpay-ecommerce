@@ -78,6 +78,19 @@ class NeatWorldpayController(http.Controller):
     def _is_virtual_payment_reference(self, reference):
         return (reference or '').startswith('vt/')
 
+
+    def _neatworldpay_map_webhook_result_state(self, wp_state, provider=None, event_details=None):
+        """Map Worldpay webhook event type to Odoo result state."""
+        result_state = 'error'
+        if wp_state == "sentForAuthorization":
+            result_state = 'pending'
+        elif wp_state == "authorized":
+            result_state = "done"
+        elif wp_state == "cancelled":
+            result_state = 'cancel'
+        return result_state
+
+
     def _save_token_from_webhook(self, transaction_reference, event_details):
         tokenization = event_details.get("tokenPaymentInstrument", False)
         if not tokenization:
@@ -150,6 +163,34 @@ class NeatWorldpayController(http.Controller):
             )
             _logger.info(f"\n Invoice Found for cancelled transaction creating activity {reference} {invoice} \n")
 
+    def _neatworldpay_requeue_finalise(self, link_rec):
+        """Ensure Worldpay finalise pending after paid (recovers race rollbacks)."""
+        try:
+            if not link_rec:
+                return
+            amount = link_rec.partial_amount if getattr(link_rec, 'is_partial', False) else link_rec.amount
+            request.env['neatworldpay.finalise.payment'].sudo().mark_pending(
+                link_rec.reference, link_rec.provider_id, amount, link_rec.currency_id, 'ecommerce',
+            )
+        except Exception:
+            _logger.exception(
+                'NeatWorldpay requeue finalise failed ref=%s', getattr(link_rec, 'reference', None)
+            )
+
+    def _neatworldpayvt_requeue_finalise(self, payment):
+        """Ensure Worldpay VT finalise pending after paid (recovers race rollbacks)."""
+        try:
+            if not payment or 'neatworldpayvt.finalise.payment' not in request.env:
+                return
+            amount = payment.partial_amount if getattr(payment, 'is_partial', False) else payment.amount
+            request.env['neatworldpayvt.finalise.payment'].sudo().mark_pending(
+                payment.reference, payment.provider_id, amount, payment.currency_id, 'virtual terminal',
+            )
+        except Exception:
+            _logger.exception(
+                'NeatWorldpayVT requeue finalise failed ref=%s', getattr(payment, 'reference', None)
+            )
+
     def _handle_guid_link_invoices(self, reference, result_state):
         link_rec = request.env['worldpay.payment.link'].sudo().search([('reference', '=', reference)], limit=1)
         if not link_rec:
@@ -158,6 +199,8 @@ class NeatWorldpayController(http.Controller):
         if link_rec.status == 'paid' and result_state in ('cancel', 'error'):
             return True
         if link_rec.status == target_status:
+            if result_state == 'done':
+                self._neatworldpay_requeue_finalise(link_rec)
             return True
         if link_rec.status == 'paid' and target_status in ('pending', 'cancel', 'error'):
             return True
@@ -223,6 +266,8 @@ class NeatWorldpayController(http.Controller):
         if payment.status == 'paid' and result_state in ('cancel', 'error'):
             return True
         if payment.status == target_status:
+            if result_state == 'done':
+                self._neatworldpayvt_requeue_finalise(payment)
             return True
         if payment.status == 'paid' and target_status in ('pending', 'cancel', 'error'):
             return True
@@ -335,13 +380,7 @@ class NeatWorldpayController(http.Controller):
                 wp_reference = event_details.get("transactionReference", False)
                 wp_state = event_details.get("type", False)
                 tokenization = event_details.get("tokenPaymentInstrument", False)
-                result_state = 'error'
-                if wp_state == "sentForAuthorization":
-                    result_state = 'pending'
-                elif wp_state == "authorized":
-                    result_state = "done"
-                elif wp_state == "cancelled":
-                    result_state = 'cancel'
+                result_state = self._neatworldpay_map_webhook_result_state(wp_state, event_details=event_details)
                 if (wp_reference or '').startswith('pl/'):
                     if wp_state in ("sentForAuthorization", "sentForSettlement"):
                         _logger.info(f"\n Ignoring {wp_state} for payment link multi payment {wp_reference} \n")
@@ -352,6 +391,8 @@ class NeatWorldpayController(http.Controller):
                     link_rec = request.env['worldpay.payment.link'].sudo().search([('reference', '=', wp_reference)], limit=1)
                     if link_rec and link_rec.status == 'paid' and wp_state == "authorized":
                         _logger.info(f"\n Link already paid and received authorized again {wp_reference} \n")
+                        if result_state == 'done':
+                            self._neatworldpay_requeue_finalise(link_rec)
                         return request.make_json_response({
                             'error': 'OK',
                             'message': 'OK'
@@ -386,6 +427,8 @@ class NeatWorldpayController(http.Controller):
                         }, status=200)
                     _logger.info(f"\n Link Record not found or status is {(link_rec.status if link_rec else 'not_found')} {wp_reference} \n")
                     if not link_rec or link_rec.status in ('paid', 'cancel', 'error'):
+                        if link_rec and link_rec.status == 'paid' and result_state == 'done':
+                            self._neatworldpay_requeue_finalise(link_rec)
                         _logger.info(f"\n Link Record not found or status is {(link_rec.status if link_rec else 'not_found')} {wp_reference} \n")
                         return request.make_json_response({
                             'error': 'OK',
@@ -412,6 +455,8 @@ class NeatWorldpayController(http.Controller):
                     virtual_payment = request.env['worldpay.virtual.payment'].sudo().search([('reference', '=', wp_reference)], limit=1)
                     if virtual_payment and virtual_payment.status == 'paid' and wp_state == "authorized":
                         _logger.info(f"\n Virtual payment already paid and received authorized again {wp_reference} \n")
+                        if result_state == 'done':
+                            self._neatworldpayvt_requeue_finalise(virtual_payment)
                         return request.make_json_response({
                             'error': 'OK',
                             'message': 'OK'
@@ -446,6 +491,8 @@ class NeatWorldpayController(http.Controller):
                         }, status=200)
                     _logger.info(f"\n Virtual Payment not found or status is {(virtual_payment.status if virtual_payment else 'not_found')} {wp_reference} \n")
                     if not virtual_payment or virtual_payment.status in ('paid', 'cancel', 'error'):
+                        if virtual_payment and virtual_payment.status == 'paid' and result_state == 'done':
+                            self._neatworldpayvt_requeue_finalise(virtual_payment)
                         _logger.info(f"\n Virtual Payment not found or status is {(virtual_payment.status if virtual_payment else 'not_found')} {wp_reference} \n")
                         return request.make_json_response({
                             'error': 'OK',
